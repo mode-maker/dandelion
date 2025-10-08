@@ -21,14 +21,14 @@ export default function Impressions() {
   return (
     <section className="py-12">
       {/* СУЖАЕМ общий контейнер: было max-w-[1200px], стало 1040 */}
-      <div className="max-w-[1040px] mx-auto px-5">
+      <div className="max-w-[1200px] mx-auto px-6">
         {/* Карточка: оставили тот же радиус и тень */}
         <div className="rounded-2xl overflow-hidden bg-[#EFE9DD] shadow-[8px_8px_15.5px_rgba(0,0,0,0.3)]">
           {/* Делаем пропорции 1.15 / 0.85 чтобы оба блока визуально компактнее смотрелись */}
           <div className="grid grid-cols-[1.15fr_0.85fr]">
             {/* Текст — меньше внутренние отступы */}
             <div className="p-8">
-              <h2 className={`${caveat.className} text-3xl leading-tight mb-5`}>
+              <h2 className={`${caveat.className} text-[39px] leading-tight mb-5`}>
                 ВПЕЧАТЛЕНИЯ, КОТОРЫЕ<br />ОСТАНУТСЯ В ПАМЯТИ
               </h2>
 
