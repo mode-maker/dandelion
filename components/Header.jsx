@@ -3,8 +3,8 @@ import { FaTelegramPlane, FaInstagram } from "react-icons/fa";
 export default function Header() {
   return (
     <header className="w-full bg-[#3C3C3B]">
-      {/* Контейнер хедера: всё слева, в одну линию */}
-      <div className="max-w-[1200px] mx-auto px-6 h-[64px] flex items-center gap-12">
+      {/* Контейнер: меню слева, контакты справа */}
+      <div className="max-w-[1200px] mx-auto px-6 h-[64px] flex items-center justify-between">
         {/* ЛЕВО: меню */}
         <nav className="flex items-center gap-16 text-[14px] tracking-[0.06em] uppercase text-[#ECECEC]">
           <a className="hover:opacity-80 transition" href="#">Мастер - классы</a>
@@ -13,7 +13,7 @@ export default function Header() {
           <a className="hover:opacity-80 transition" href="#">Видео</a>
         </nav>
 
-        {/* РЯДОМ СЛЕВА: телефон + иконки */}
+        {/* ПРАВО: телефон + иконки */}
         <div className="flex items-center gap-4 text-[14px] text-[#ECECEC]">
           <a className="hover:opacity-80 transition" href="tel:+79992343527">
             +7 (999) 234-35-27
