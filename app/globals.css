@@ -1,5 +1,12 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Глобальный фон: мягкий вертикальный градиент фирменного зелёного */
+:root{
+  --brand-top: #5F6F65;   /* верх (базовый) */
+  --brand-mid: #6E7E74;   /* центр чуть светлее */
+  --brand-bot: #5F6F65;   /* низ */
+}
 
-* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body{
+  background: linear-gradient(180deg, var(--brand-top) 0%, var(--brand-mid) 50%, var(--brand-bot) 100%);
+}
