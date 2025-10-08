@@ -15,7 +15,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="ru">
-      <body className={`${mont.className} min-h-screen text-zinc-900 antialiased`}>
+      <body className={`${mont.className} min-h-screen bg-white text-zinc-900 antialiased`}>
         {children}
       </body>
     </html>
