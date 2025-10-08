@@ -1,3 +1,5 @@
+import "./globals.css";
+
 export const metadata = {
   title: "DANDELION — сайт на коде",
   description: "Переводим дизайн из Framer в код",
