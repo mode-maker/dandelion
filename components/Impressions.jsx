@@ -49,17 +49,14 @@ export default function Impressions() {
             </div>
 
             {/* Фото — уменьшаем высоту блока, чтобы карточка стала ниже */}
-            <div className="relative min-h-[360px]">
-              <Image
-                src={src}
-                alt="Флорариум"
-                fill
-                className="object-cover"
-                sizes="(min-width: 1024px) 520px, 100vw"
-                onError={() => setSrc("/about/terrarium.png")}
-                priority
-              />
-            </div>
+            <div className="h-full min-h-[360px]">
+  <img
+    src="/about/terrarium.jpg"
+    alt="Флорариум"
+    onError={(e) => { e.currentTarget.src = "/about/terrarium.png"; }}
+    className="block w-full h-full object-cover"
+  />
+</div>
           </div>
         </div>
       </div>
