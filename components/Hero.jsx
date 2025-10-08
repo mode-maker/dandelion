@@ -4,34 +4,39 @@ const marck = Marck_Script({ subsets: ["cyrillic"], weight: "400", display: "swa
 export default function Hero() {
   return (
     <section className="relative overflow-hidden bg-[#5F6F65]">
-      {/* декоративные одуванчики по бокам */}
+      {/* ЛЕВЫЙ одуванчик — крупный, частично за пределами экрана */}
       <img
         src="/hero/dandelion-left.png"
         alt=""
-        className="pointer-events-none select-none absolute left-0 top-[-40px] w-[360px] opacity-90"
+        className="pointer-events-none select-none absolute left-[-80px] top-[-40px] w-[560px] opacity-90"
       />
+      {/* ПРАВЫЙ одуванчик — в углу */}
       <img
         src="/hero/dandelion-right.png"
         alt=""
-        className="pointer-events-none select-none absolute right-0 top-[-60px] w-[320px] opacity-90"
+        className="pointer-events-none select-none absolute right-[-40px] top-[-60px] w-[400px] opacity-90"
       />
 
-      <div className="relative max-w-[1200px] mx-auto px-6 py-24 text-center">
-        {/* ваш логотип (PNG). если файла нет — просто не отобразится, сайт не сломается */}
+      <div className="relative max-w-[1200px] mx-auto px-6 py-28 text-center">
+        {/* ЛОГОТИП */}
         <img
           src="/hero/logo.png"
           alt="Dandelion"
-          className="mx-auto mb-2 w-[480px] max-w-[80%]"
+          className="mx-auto mb-2 w-[640px] max-w-[80%]"
         />
 
-        {/* подпись под логотипом (рукописный стиль) */}
-        <div className={`${marck.className} text-[28px] text-[#ECEDE8]/90`}>
-          цветочная мастерская
+        {/* ПОДПИСЬ ПОД ЛОГО: ВЕРХНИЙ РЕГИСТР + трекинг */}
+        <div
+          className={`${marck.className} text-[30px] tracking-[0.18em] uppercase text-[#ECEDE8]/95`}
+        >
+          ЦВЕТОЧНАЯ МАСТЕРСКАЯ
         </div>
 
-        {/* слоган */}
-        <p className="mt-8 text-[20px] leading-relaxed text-[#ECEDE8]">
-          Флорариум — природа в твоих руках<br />Создай свой маленький мир
+        {/* СЛОГАН */}
+        <p className="mt-10 text-[22px] leading-relaxed text-[#ECEDE8]">
+          Флорариум — природа в твоих руках
+          <br />
+          Создай свой маленький мир
         </p>
       </div>
     </section>
