@@ -3,3 +3,16 @@
 @tailwind utilities;
 
 * { box-sizing: border-box; }
+
+/* Глобальный фон: мягкий вертикальный градиент фирменного зелёного */
+:root{
+  --brand-top: #5F6F65;  /* верх */
+  --brand-mid: #6E7E74;  /* середина чуть светлее */
+  --brand-bot: #5F6F65;  /* низ */
+}
+
+html, body { height: 100%; }
+
+body{
+  background: linear-gradient(180deg, var(--brand-top) 0%, var(--brand-mid) 50%, var(--brand-bot) 100%);
+}
