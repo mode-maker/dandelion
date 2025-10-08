@@ -25,7 +25,7 @@ export default function Impressions() {
                 ВПЕЧАТЛЕНИЯ, КОТОРЫЕ<br />ОСТАНУТСЯ В ПАМЯТИ
               </h2>
 
-              <div className={`${manrope.className} text-[16px] leading-7 text-zinc-800 space-y-4`}>
+              <div className={`${manrope.className} text-[20px] leading-7 text-zinc-800 space-y-4`}>
                 <p>
                   Мы проводим мастер-классы, создаём уникальные флорариумы и делаем
                   мероприятия особенными. Уже более 2 лет мы помогаем людям открыть для
