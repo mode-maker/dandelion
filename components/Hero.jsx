@@ -7,8 +7,19 @@ const caveat = Caveat({
 
 export default function Hero() {
   return (
-    // фон секции прозрачный, чтобы просвечивал ГЛОБАЛЬНЫЙ градиент
-    <section className="relative overflow-hidden">
+    <section className="relative overflow-hidden bg-[#5F6F65]">
+      {/* Одуванчики (уменьшенные) */}
+      <img
+        src="/hero/dandelion-left.png"
+        alt=""
+        className="pointer-events-none select-none absolute left-[-20px] top-[-10px] w-[210px] opacity-90"
+      />
+      <img
+        src="/hero/dandelion-right.png"
+        alt=""
+        className="pointer-events-none select-none absolute right-[-10px] top-[-10px] w-[150px] opacity-90"
+      />
+
       <div className="relative max-w-[1200px] mx-auto px-6 py-28 text-center">
         {/* Логотип */}
         <img
@@ -17,7 +28,7 @@ export default function Hero() {
           className="mx-auto mb-2 w-[640px] max-w-[80%]"
         />
 
-        {/* Подпись — Caveat, ВЕРХНИЙ РЕГИСТР */}
+        {/* Подпись */}
         <div className={`${caveat.className} text-[28px] uppercase tracking-[0.14em] text-[#ECEDE8]/95`}>
           Цветочная мастерская
         </div>
