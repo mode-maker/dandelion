@@ -1,15 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Caveat } from "next/font/google";
 
-// Данные карточек (можешь править заголовки/пути к фото)
+const caveat = Caveat({
+  subsets: ["cyrillic", "latin"],
+  weight: ["700"],     // жирность для заголовков
+  display: "swap",
+});
+
+// Данные карточек
 const ITEMS = [
   { title: "Флорариумы с суккулентами", img: "/workshops/1.jpg" },
   { title: "Тематические и сезонные",   img: "/workshops/2.jpg" },
   { title: "Композиции из сухоцветов",  img: "/workshops/3.jpg" },
   { title: "Детские мастер-классы",     img: "/workshops/4.jpg" },
   { title: "Выездные мастер-классы",    img: "/workshops/5.jpg" },
-  // 6-я карточка — поднимаем кадр: объект-позиция 50% по X и 35% по Y
+  // 6-я карточка — нижнюю часть кадра поднимаем чуть выше центра
   { title: "Украшение помещений",       img: "/workshops/6.jpg", objPos: "object-[50%_35%]" },
 ];
 
@@ -45,7 +52,9 @@ export default function WorkshopsGrid() {
           >
             <div className="grid grid-cols-2">
               <div className="p-8">
-                <h3 className="text-xl font-semibold text-zinc-900">{modal.title}</h3>
+                <h3 className={`${caveat.className} text-2xl text-zinc-900`}>
+                  {modal.title}
+                </h3>
                 <p className="mt-4 text-[15px] leading-7 text-zinc-800">
                   {modal.desc ?? "Описание этого мастер-класса появится здесь."}
                 </p>
@@ -77,12 +86,12 @@ export default function WorkshopsGrid() {
 function Card({ item, onMore }) {
   return (
     <div className="space-y-3">
-      {/* 1) Заголовок НАД изображением */}
-      <div className="text-[#ECEDE8] text-[21px] font-semibold">
+      {/* Заголовок над изображением — Caveat */}
+      <div className={`${caveat.className} text-[#ECEDE8] text-[21px] tracking-wide`}>
         {item.title}
       </div>
 
-      {/* 2) Фото — одинаковая высота, скругления и тень */}
+      {/* Фото */}
       <div className="rounded-xl overflow-hidden shadow-[0_10px_24px_rgba(0,0,0,0.25)]">
         <img
           src={item.img}
@@ -92,9 +101,8 @@ function Card({ item, onMore }) {
         />
       </div>
 
-      {/* 3–4) Кнопки с нужными стилями */}
+      {/* Кнопки */}
       <div className="flex items-center gap-3">
-        {/* Узнать больше: без обводки, заливка E7E8E0, чёрный текст */}
         <button
           onClick={onMore}
           className="rounded-md px-4 py-1.5 bg-[#E7E8E0] text-zinc-900
@@ -103,7 +111,6 @@ function Card({ item, onMore }) {
           Узнать больше
         </button>
 
-        {/* Записаться: более прозрачная */}
         <a
           href="https://t.me/yourtelegram"
           target="_blank"
