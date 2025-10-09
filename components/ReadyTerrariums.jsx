@@ -71,11 +71,11 @@ export default function ReadyTerrariums() {
     <section className="py-14">
       <div className="max-w-[1200px] mx-auto px-6">
         {/* Заголовок блока */}
-        <h2
-          className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] text-center tracking-wide mb-6`}
-        >
-          ← ГОТОВЫЕ ФЛОРАРИУМЫ →
-        </h2>
+       <h2
+  className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] text-center tracking-wide mb-6`}
+>
+  ГОТОВЫЕ ФЛОРАРИУМЫ
+</h2>
 
         <div className="relative">
           {/* подложка */}
