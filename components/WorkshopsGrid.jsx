@@ -1,11 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Manrope } from "next/font/google";
+import { Manrope, Caveat } from "next/font/google";
 
 const manrope = Manrope({
   subsets: ["cyrillic", "latin"],
   weight: ["600", "700"],
+  display: "swap",
+});
+
+const caveat = Caveat({
+  subsets: ["cyrillic", "latin"],
+  weight: ["700"],
   display: "swap",
 });
 
@@ -66,6 +72,13 @@ export default function WorkshopsGrid() {
   return (
     <section className="py-14">
       <div className="max-w-[1200px] mx-auto px-6">
+        {/* НАЗВАНИЕ БЛОКА */}
+        <h2
+          className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] text-center tracking-wide mb-8`}
+        >
+          СОЗДАЙ КРАСОТУ СВОИМИ РУКАМИ
+        </h2>
+
         <div className="grid grid-cols-3 gap-10">
           {ITEMS.map((it, i) => (
             <Card key={i} item={it} onMore={() => setModal(it)} />
@@ -73,6 +86,7 @@ export default function WorkshopsGrid() {
         </div>
       </div>
 
+      {/* ЕДИНЫЙ ПОП-АП */}
       {modal && (
         <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[1px] flex items-center justify-center p-6"
@@ -125,7 +139,7 @@ export default function WorkshopsGrid() {
 function Card({ item, onMore }) {
   return (
     <div className="space-y-3">
-      {/* Заголовок — 22px */}
+      {/* Заголовок карточки — 22px */}
       <div className={`${manrope.className} text-[#ECEDE8] text-[22px] font-semibold`}>
         {item.title}
       </div>
