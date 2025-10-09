@@ -9,9 +9,9 @@ const manrope = Manrope({
   display: "swap",
 });
 
-// ЕДИНЫЕ габариты поп-апа (меняй тут при необходимости)
-const MODAL_W = 880;  // ширина окна (px)
-const MODAL_H = 420;  // высота окна (px)
+// ЕДИНЫЕ габариты поп-апа
+const MODAL_W = 880;
+const MODAL_H = 420;
 
 // Данные карточек
 const ITEMS = [
@@ -48,7 +48,10 @@ const ITEMS = [
   {
     title: "Украшение помещений",
     img: "/workshops/6.jpg",
-    objPos: "object-[50%_35%]", // кадр слегка приподнят
+    // В превью смещаем фокус ближе к низу, чтобы видно было объект внизу кадра
+    objPosCard: "object-[50%_85%]",
+    // В поп-апе можно оставить центральней; при желании поднимем/опустим:
+    objPosModal: "object-[50%_75%]",
     desc:
       "Флористические решения и оформление пространства под задачу и бюджет.",
   },
@@ -57,7 +60,6 @@ const ITEMS = [
 export default function WorkshopsGrid() {
   const [modal, setModal] = useState(null);
 
-  // Закрытие модалки по Esc
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && setModal(null);
     window.addEventListener("keydown", onKey);
@@ -74,20 +76,18 @@ export default function WorkshopsGrid() {
         </div>
       </div>
 
-      {/* ЕДИНЫЙ ПОП-АП */}
       {modal && (
         <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[1px] flex items-center justify-center p-6"
           onClick={() => setModal(null)}
         >
           <div
-            className={`rounded-2xl bg-[#EFE9DD] shadow-[8px_8px_24px_rgba(0,0,0,0.35)] overflow-hidden`}
+            className="rounded-2xl bg-[#EFE9DD] shadow-[8px_8px_24px_rgba(0,0,0,0.35)] overflow-hidden"
             style={{ width: MODAL_W, height: MODAL_H }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* две колонки одинаковой высоты */}
             <div className="grid grid-cols-2 h-full">
-              {/* Левая часть — контент, выровнен по вертикали */}
+              {/* Текст */}
               <div className="h-full p-8 flex flex-col">
                 <h3 className={`${manrope.className} text-2xl font-semibold text-zinc-900`}>
                   {modal.title}
@@ -99,7 +99,7 @@ export default function WorkshopsGrid() {
                 <div className="mt-auto pt-6">
                   <button
                     className="inline-flex items-center justify-center rounded-md px-4 py-2
-                               bg-[#E7E8E0] text-zinc-900 transition hover:-translate-y-0.5
+                               bg-[#3F3F3F] text-[#E7E8E0] transition hover:-translate-y-0.5
                                hover:shadow-md active:translate-y-0"
                     onClick={() => setModal(null)}
                   >
@@ -108,13 +108,13 @@ export default function WorkshopsGrid() {
                 </div>
               </div>
 
-              {/* Правая часть — картинка, строго под размер MODAL_H */}
+              {/* Фото */}
               <div className="relative h-full overflow-hidden rounded-r-2xl -mr-px">
                 <img
                   src={modal.img}
                   alt={modal.title}
                   onError={(e) => { e.currentTarget.src = "/about/terrarium.jpg"; }}
-                  className={`block w-full h-full object-cover ${modal.objPos ?? "object-center"}`}
+                  className={`block w-full h-full object-cover ${modal.objPosModal ?? "object-center"}`}
                 />
               </div>
             </div>
@@ -128,18 +128,18 @@ export default function WorkshopsGrid() {
 function Card({ item, onMore }) {
   return (
     <div className="space-y-3">
-      {/* Заголовок над изображением — Manrope */}
+      {/* Заголовок */}
       <div className={`${manrope.className} text-[#ECEDE8] text-[21px] font-semibold`}>
         {item.title}
       </div>
 
-      {/* Превью-фото */}
+      {/* Превью-фото (смещаем фокус, если задан objPosCard) */}
       <div className="rounded-xl overflow-hidden shadow-[0_10px_24px_rgba(0,0,0,0.25)]">
         <img
           src={item.img}
           alt={item.title}
           onError={(e) => { e.currentTarget.src = "/about/terrarium.jpg"; }}
-          className={`block w-full h-[240px] object-cover ${item.objPos ?? "object-center"}`}
+          className={`block w-full h-[240px] object-cover ${item.objPosCard ?? "object-center"}`}
         />
       </div>
 
