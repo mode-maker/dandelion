@@ -78,7 +78,7 @@ function Card({ item, onMore }) {
   return (
     <div className="space-y-3">
       {/* 1) Заголовок НАД изображением */}
-      <div className="text-[#ECEDE8] text-[18px] font-semibold">
+      <div className="text-[#ECEDE8] text-[25px] font-semibold">
         {item.title}
       </div>
 
