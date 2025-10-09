@@ -124,3 +124,4 @@ function Card({ item, onMore }) {
     </div>
   );
 }
+
