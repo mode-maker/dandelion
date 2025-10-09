@@ -79,7 +79,7 @@ export default function ReadyTerrariums() {
 
         <div className="relative">
           {/* подложка */}
-          <div className="rounded-2xl bg-[#DADDC4] shadow-[0_10px_28px_rgba(0,0,0,0.25)] px-6 py-6">
+          <div className="rounded-2xl bg-[#E7E8E0] shadow-[0_10px_28px_rgba(0,0,0,0.25)] px-6 py-6">
             {/* стрелки */}
             <button
               aria-label="Назад"
@@ -102,9 +102,9 @@ export default function ReadyTerrariums() {
 
             {/* затемнение краёв (для красоты) */}
             <div className="pointer-events-none absolute inset-y-0 left-0 w-16 rounded-l-2xl
-                            bg-gradient-to-r from-[#DADDC4] to-transparent" />
+                            bg-gradient-to-r from-[#E7E8E0] to-transparent" />
             <div className="pointer-events-none absolute inset-y-0 right-0 w-16 rounded-r-2xl
-                            bg-gradient-to-l from-[#DADDC4] to-transparent" />
+                            bg-gradient-to-l from-[#E7E8E0] to-transparent" />
 
             {/* горизонтальная лента */}
             <div
