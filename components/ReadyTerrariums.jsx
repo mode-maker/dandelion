@@ -101,9 +101,9 @@ export default function ReadyTerrariums() {
             </button>
 
             {/* затемнение краёв (для красоты) */}
-            <div className="pointer-events-none absolute inset-y-0 left-0 w-16 rounded-l-2xl
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-10 rounded-l-2xl
                             bg-gradient-to-r from-[#E7E8E0] to-transparent" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-16 rounded-r-2xl
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-10 rounded-r-2xl
                             bg-gradient-to-l from-[#E7E8E0] to-transparent" />
 
             {/* горизонтальная лента */}
@@ -130,7 +130,8 @@ function Card({ title, img, desc, price }) {
       data-card
       className="snap-start flex-shrink-0 w-[320px] md:w-[340px] rounded-xl"
     >
-      <header className={`${manrope.className} text-[22px] font-semibold text-[#2b2b2b] mb-3`}>
+      {/* Заголовок — был 22px → стал 24px */}
+      <header className={`${manrope.className} text-[24px] font-semibold text-[#2b2b2b] mb-3`}>
         {title}
       </header>
 
@@ -142,27 +143,29 @@ function Card({ title, img, desc, price }) {
           height={800}
           className="w-full h-[360px] object-cover"
           onError={(e) => {
-            // fallback на любое общее фото в /public/about
             // @ts-ignore
             e.currentTarget.src = "/about/terrarium.jpg";
           }}
-          priority={false}
         />
       </div>
 
-      <p className="mt-3 text-[15px] leading-6 text-[#333]">
+      {/* Описание — было 15px → стало 16px */}
+      <p className="mt-3 text-[16px] leading-7 text-[#333]">
         {desc}
       </p>
 
       <div className="mt-3 flex items-center justify-between">
-        <div className={`${manrope.className} text-[20px] font-semibold text-[#1d1d1d]`}>
+        {/* Цена — было 20px → стало 22px */}
+        <div className={`${manrope.className} text-[22px] font-semibold text-[#1d1d1d]`}>
           {price}p
         </div>
+
+        {/* Кнопка — больше, фон 3F3F3F, текст E7E8E0 */}
         <a
           href="https://t.me/yourtelegram"
           target="_blank"
           rel="noreferrer"
-          className="rounded-md bg-[#E7E8E0] text-[#222] px-4 py-1.5 text-[14px]
+          className="rounded-md bg-[#3F3F3F] text-[#E7E8E0] px-5 py-2 text-[15px] md:text-[16px]
                      transition transform hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
         >
           Заказать
