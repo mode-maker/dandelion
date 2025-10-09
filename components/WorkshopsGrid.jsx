@@ -13,7 +13,6 @@ const manrope = Manrope({
 const MODAL_W = 880;
 const MODAL_H = 420;
 
-// Данные карточек
 const ITEMS = [
   {
     title: "Флорариумы с суккулентами",
@@ -74,7 +73,6 @@ export default function WorkshopsGrid() {
         </div>
       </div>
 
-      {/* ЕДИНЫЙ ПОП-АП */}
       {modal && (
         <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[1px] flex items-center justify-center p-6"
@@ -88,16 +86,16 @@ export default function WorkshopsGrid() {
             <div className="grid grid-cols-2 h-full">
               {/* Текст */}
               <div className="h-full p-8 flex flex-col">
-                <h3 className={`${manrope.className} text-2xl font-semibold text-zinc-900`}>
+                <h3 className={`${manrope.className} text-[24px] font-semibold text-zinc-900`}>
                   {modal.title}
                 </h3>
-                <p className="mt-4 text-[15px] leading-7 text-zinc-800">
+                <p className="mt-4 text-[16px] leading-7 text-zinc-800">
                   {modal.desc ?? "Описание этого мастер-класса появится здесь."}
                 </p>
 
                 <div className="mt-auto pt-6">
                   <button
-                    className="inline-flex items-center justify-center rounded-md px-4 py-2
+                    className="inline-flex items-center justify-center rounded-md px-4 py-2 text-[14px]
                                bg-[#3F3F3F] text-[#E7E8E0] transition hover:-translate-y-0.5
                                hover:shadow-md active:translate-y-0"
                     onClick={() => setModal(null)}
@@ -127,8 +125,8 @@ export default function WorkshopsGrid() {
 function Card({ item, onMore }) {
   return (
     <div className="space-y-3">
-      {/* Заголовок */}
-      <div className={`${manrope.className} text-[#ECEDE8] text-[21px] font-semibold`}>
+      {/* Заголовок — 22px */}
+      <div className={`${manrope.className} text-[#ECEDE8] text-[22px] font-semibold`}>
         {item.title}
       </div>
 
@@ -142,11 +140,11 @@ function Card({ item, onMore }) {
         />
       </div>
 
-      {/* Кнопки */}
+      {/* Кнопки — 14px */}
       <div className="flex items-center gap-3">
         <button
           onClick={onMore}
-          className="rounded-md px-4 py-1.5 bg-[#E7E8E0] text-zinc-900
+          className="rounded-md px-4 py-1.5 text-[14px] bg-[#E7E8E0] text-zinc-900
                      transition transform hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
         >
           Узнать больше
@@ -156,7 +154,7 @@ function Card({ item, onMore }) {
           href="https://t.me/yourtelegram"
           target="_blank"
           rel="noreferrer"
-          className="rounded-md px-4 py-1.5 bg-white/10 text-white/90 border border-white/25
+          className="rounded-md px-4 py-1.5 text-[14px] bg-white/10 text-white/90 border border-white/25
                      transition transform hover:-translate-y-0.5 hover:bg-white/20 active:translate-y-0"
         >
           Записаться
