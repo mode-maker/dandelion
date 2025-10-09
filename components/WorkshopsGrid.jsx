@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Caveat } from "next/font/google";
+import { Manrope } from "next/font/google";
 
-const caveat = Caveat({
+const manrope = Manrope({
   subsets: ["cyrillic", "latin"],
-  weight: ["700"],     // жирность для заголовков
+  weight: ["600", "700"], // полужирный/жирный для заголовков
   display: "swap",
 });
 
@@ -16,14 +16,12 @@ const ITEMS = [
   { title: "Композиции из сухоцветов",  img: "/workshops/3.jpg" },
   { title: "Детские мастер-классы",     img: "/workshops/4.jpg" },
   { title: "Выездные мастер-классы",    img: "/workshops/5.jpg" },
-  // 6-я карточка — нижнюю часть кадра поднимаем чуть выше центра
   { title: "Украшение помещений",       img: "/workshops/6.jpg", objPos: "object-[50%_35%]" },
 ];
 
 export default function WorkshopsGrid() {
   const [modal, setModal] = useState(null);
 
-  // закрытие модалки по Esc
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && setModal(null);
     window.addEventListener("keydown", onKey);
@@ -40,7 +38,6 @@ export default function WorkshopsGrid() {
         </div>
       </div>
 
-      {/* Модалка "Узнать больше" */}
       {modal && (
         <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[1px] flex items-center justify-center p-6"
@@ -52,7 +49,7 @@ export default function WorkshopsGrid() {
           >
             <div className="grid grid-cols-2">
               <div className="p-8">
-                <h3 className={`${caveat.className} text-2xl text-zinc-900`}>
+                <h3 className={`${manrope.className} text-2xl font-semibold text-zinc-900`}>
                   {modal.title}
                 </h3>
                 <p className="mt-4 text-[15px] leading-7 text-zinc-800">
@@ -86,8 +83,8 @@ export default function WorkshopsGrid() {
 function Card({ item, onMore }) {
   return (
     <div className="space-y-3">
-      {/* Заголовок над изображением — Caveat */}
-      <div className={`${caveat.className} text-[#ECEDE8] text-[21px] tracking-wide`}>
+      {/* Заголовок над изображением — Manrope */}
+      <div className={`${manrope.className} text-[#ECEDE8] text-[21px] font-semibold`}>
         {item.title}
       </div>
 
