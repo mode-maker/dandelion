@@ -13,3 +13,17 @@ export default function Page() {
     </>
   );
 }
+import WorkshopsGrid from "../components/WorkshopsGrid";
+
+export default function Page() {
+  return (
+    <>
+      <Header />
+      <main>
+        <Hero />
+        <Impressions />
+        <WorkshopsGrid />
+      </main>
+    </>
+  );
+}
