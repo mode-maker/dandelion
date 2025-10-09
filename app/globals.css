@@ -16,3 +16,6 @@ html, body { height: 100%; }
 body{
   background: linear-gradient(180deg, var(--brand-top) 0%, var(--brand-mid) 50%, var(--brand-bot) 100%);
 }
+/* скрыть горизонтальный скроллбар у ленты карточек */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
