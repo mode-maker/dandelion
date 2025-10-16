@@ -8,7 +8,7 @@ const manrope = Manrope({
   display: "swap",
 });
 
-// крупнее иконки (22px)
+// inline-иконки (Instagram/Pin/Phone оставил как раньше)
 function PinIcon(props) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" {...props}>
@@ -33,24 +33,17 @@ function InstagramIcon(props) {
     </svg>
   );
 }
-function TelegramIcon(props) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" {...props}>
-      <path d="M21 3 3 11l6 2 2 6 4-5 4-11z" stroke="#ECEDE8" strokeWidth="1.6" />
-    </svg>
-  );
-}
 
 export default function Footer() {
   const year = new Date().getFullYear();
 
   return (
     <footer className="mt-16">
-      {/* верхняя узкая полоска в фирменном цвете */}
-      <div className="h-2 bg-[#6F8076]/70" />
+      {/* полоска тоньше: 4px */}
+      <div className="h-1 bg-[#6F8076]/70" />
       <div className="bg-[#3F3F3F] text-[#ECEDE8]">
         <div className="max-w-[1200px] mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-10 items-center">
-          {/* ЛЕВАЯ КОЛОНКА — контакты */}
+          {/* ЛЕВО: контакты */}
           <div className={`${manrope.className} text-[15px] leading-7`}>
             <div className="flex items-start gap-3.5">
               <PinIcon className="mt-[2px]" />
@@ -64,23 +57,42 @@ export default function Footer() {
             </div>
             <div className="mt-2 flex items-center gap-3.5">
               <InstagramIcon />
-              <a href="https://instagram.com/dandelion" target="_blank" rel="noreferrer" className="hover:underline">
+              <a
+                href="https://instagram.com/dandelion"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:underline"
+              >
                 @dandelion
               </a>
             </div>
+
+            {/* Telegram — такая же иконка, как в Header */}
             <div className="mt-1 flex items-center gap-3.5">
-              <TelegramIcon />
-              <a href="https://t.me/dandelion" target="_blank" rel="noreferrer" className="hover:underline">
+              {/* ⚠️ укажи тот же путь, что использован в Header */}
+              <img
+                src="/icons/telegram.svg"
+                width={22}
+                height={22}
+                alt="Telegram"
+                className="block"
+              />
+              <a
+                href="https://t.me/dandelion"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:underline"
+              >
                 @dandelion
               </a>
             </div>
           </div>
 
-          {/* СЕРЕДИНА — логотип строго по центру блока */}
+          {/* ЦЕНТР: логотип по центру */}
           <div className="flex justify-center items-center">
-            {/* замени путь, если твой файл называется иначе */}
+            {/* путь на твой логотип, как в проекте */}
             <Image
-              src="/logo/dandelion.svg"   // ← твой файл логотипа
+              src="/logo/dandelion.svg"
               alt="Dandelion"
               width={180}
               height={60}
@@ -89,15 +101,13 @@ export default function Footer() {
             />
           </div>
 
-          {/* ПРАВАЯ КОЛОНКА — юр-текст по центру, как на референсе */}
-          <div className={`${manrope.className} text-[14px] leading-6 justify-self-center md:justify-self-end`}>
-            <div className="max-w-[360px] text-center">
+          {/* ПРАВО: юр-текст по правому краю */}
+          <div className={`${manrope.className} text-[14px] leading-6 justify-self-end`}>
+            <div className="max-w-[380px] text-right">
               <p>
-                Все права защищены. Все товарные
-                знаки и другие средства
-                индивидуализации, представленные
-                на данном сайте, принадлежат их
-                законным владельцам.
+                Все права защищены. Все товарные знаки и другие средства
+                индивидуализации, представленные на данном сайте, принадлежат
+                их законным владельцам.
               </p>
               <p className="mt-1">Dandelion</p>
               {/* если нужно ©: <p className="mt-1">© {year} Dandelion</p> */}
