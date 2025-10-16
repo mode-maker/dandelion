@@ -16,24 +16,8 @@ export default function Page() {
         <WorkshopsGrid />
         <ReadyTerrariums />
         <Events />
-        <Certificate />   {/* ← блок сертификата */}
+        <Certificate />
       </main>
     </>
   );
 }
-
-export default function Page() {
-  return (
-    <>
-      <Header />
-      <main>
-        <Hero />
-        <Impressions />
-        <WorkshopsGrid />
-        <ReadyTerrariums />
-        <Events />   {/* ← новый блок */}
-      </main>
-    </>
-  );
-}
-
