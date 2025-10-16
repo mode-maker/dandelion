@@ -5,6 +5,7 @@ import WorkshopsGrid from "../components/WorkshopsGrid";
 import ReadyTerrariums from "../components/ReadyTerrariums";
 import Events from "../components/Events";
 import Certificate from "../components/Certificate";
+import Footer from "../components/Footer";
 
 export default function Page() {
   return (
