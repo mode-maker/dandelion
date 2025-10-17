@@ -18,7 +18,7 @@ export default function Page() {
         <ReadyTerrariums />
         <Events />
         <Certificate />
-        <Footer /> {/* ⬅ футер */}
+        <Footer />
       </main>
     </>
   );
