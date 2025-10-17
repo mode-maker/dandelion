@@ -1,4 +1,4 @@
-import Reviews from "@/components/Reviews";
+import Reviews from "../components/Reviews.jsx";
 import Header from "../components/Header";
 import Hero from "../components/Hero";
 import Impressions from "../components/Impressions";
