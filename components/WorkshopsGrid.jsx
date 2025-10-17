@@ -2,11 +2,17 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Manrope } from "next/font/google";
+import { Manrope, Caveat } from "next/font/google";
 
 const manrope = Manrope({
   subsets: ["cyrillic", "latin"],
   weight: ["500", "600", "700"],
+  display: "swap",
+});
+
+const caveat = Caveat({
+  subsets: ["cyrillic", "latin"],
+  weight: ["700"],
   display: "swap",
 });
 
@@ -62,9 +68,17 @@ export default function WorkshopsGrid() {
   }, []);
 
   return (
-<section id="workshops" className="py-14 scroll-mt-24 lg:scroll-mt-28">
-  <div className="max-w-[1200px] mx-auto px-6">
-        <div className="grid grid-cols-3 gap-10">
+    <section id="workshops" className="py-14 scroll-mt-24 lg:scroll-mt-28">
+      <div className="max-w-[1200px] mx-auto px-6">
+        {/* Заголовок блока */}
+        <h2
+          className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] tracking-wide text-center mb-8`}
+        >
+          СОЗДАЙ КРАСОТУ СВОИМИ РУКАМИ
+        </h2>
+
+        {/* Сетка карточек */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {ITEMS.map((it, i) => (
             <Card key={i} item={it} onMore={() => setModal(it)} />
           ))}
@@ -81,7 +95,7 @@ export default function WorkshopsGrid() {
             className="max-w-[720px] w-full rounded-2xl bg-[#EFE9DD] shadow-[0_6px_20px_rgba(0,0,0,0.35)] overflow-hidden transform-gpu"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="grid grid-cols-2">
+            <div className="grid grid-cols-1 md:grid-cols-2">
               <div className="p-8">
                 <h3 className={`${manrope.className} text-xl font-semibold text-zinc-900`}>
                   {modal.title}
@@ -99,14 +113,14 @@ export default function WorkshopsGrid() {
                 </button>
               </div>
 
-              <div className="relative min-h-[260px] rounded-r-2xl overflow-hidden -mr-px">
+              <div className="relative min-h-[260px] rounded-b-2xl md:rounded-b-none md:rounded-r-2xl overflow-hidden -mr-px">
                 <Image
                   src={modal.img}
                   alt={modal.title}
                   fill
                   className="object-cover"
                   sizes="(min-width: 1024px) 360px, 100vw"
-                  loading="eager"
+                  priority={false}
                 />
               </div>
             </div>
