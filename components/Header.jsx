@@ -1,18 +1,57 @@
 "use client";
 
+import { useCallback } from "react";
 import Link from "next/link";
 import { FaTelegramPlane, FaInstagram } from "react-icons/fa";
 
 export default function Header() {
+  // единый хендлер для плавного скролла к якорям
+  const goTo = useCallback((target) => (e) => {
+    e.preventDefault();
+    const el = document.getElementById(target);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   return (
     <header className="w-full">
       <div className="max-w-[1200px] mx-auto px-6 py-4 flex items-center justify-between">
         {/* ЛЕВО: меню */}
         <nav className="flex items-center gap-6 text-[#ECEDE8]">
-          <Link href="#workshops" className="hover:opacity-90">Мастер-классы</Link>
-          <Link href="#terrariums" className="hover:opacity-90">Флорариумы</Link>
-          <Link href="#certificate" className="hover:opacity-90">Сертификат</Link>
-          <Link href="#video" className="hover:opacity-90">Видео</Link>
+          {/* Мастер-классы */}
+          <Link
+            href="#workshops"
+            onClick={goTo("workshops")}
+            className="hover:opacity-90"
+          >
+            Мастер-классы
+          </Link>
+
+          {/* ГОТОВЫЕ ФЛОРАРИУМЫ */}
+          <Link
+            href="#ready"
+            onClick={goTo("ready")}
+            className="hover:opacity-90"
+          >
+            Флорариумы
+          </Link>
+
+          {/* СЕРТИФИКАТ */}
+          <Link
+            href="#certificate"
+            onClick={goTo("certificate")}
+            className="hover:opacity-90"
+          >
+            Сертификат
+          </Link>
+
+          {/* ВИДЕО / МЕРОПРИЯТИЯ */}
+          <Link
+            href="#events"
+            onClick={goTo("events")}
+            className="hover:opacity-90"
+          >
+            Видео
+          </Link>
         </nav>
 
         {/* ПРАВО: телефон + иконки */}
@@ -21,10 +60,22 @@ export default function Header() {
             +7 (999) 234-35-27
           </a>
           <div className="flex items-center gap-3 text-[#ECEDE8]">
-            <a href="https://t.me/dandelion" target="_blank" rel="noreferrer" aria-label="Telegram" className="hover:opacity-90">
+            <a
+              href="https://t.me/dandelion"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Telegram"
+              className="hover:opacity-90"
+            >
               <FaTelegramPlane size={20} />
             </a>
-            <a href="https://instagram.com/dandelion" target="_blank" rel="noreferrer" aria-label="Instagram" className="hover:opacity-90">
+            <a
+              href="https://instagram.com/dandelion"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Instagram"
+              className="hover:opacity-90"
+            >
               <FaInstagram size={20} />
             </a>
           </div>
