@@ -1,3 +1,4 @@
+import Reviews from "@/components/Reviews";
 import Header from "../components/Header";
 import Hero from "../components/Hero";
 import Impressions from "../components/Impressions";
@@ -18,6 +19,7 @@ export default function Page() {
         <ReadyTerrariums />
         <Events />
         <Certificate />
+        <Reviews />
         <Footer />
       </main>
     </>
