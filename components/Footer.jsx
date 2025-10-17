@@ -91,8 +91,15 @@ export default function Footer() {
           {/* ЦЕНТР: логотип по центру */}
           <div className="flex justify-center items-center">
             {/* путь на твой логотип, как в проекте */}
-            <Image
-              src="/logo/dandelion.svg"
+             <Image
+   src="/hero/logo.png"   // ← тот же логотип, что в Hero
+    alt="Dandelion"
+    width={180}
+    height={60}
+    className="opacity-95"
+    priority={false}
+/>
+              
               alt="Dandelion"
               width={180}
               height={60}
