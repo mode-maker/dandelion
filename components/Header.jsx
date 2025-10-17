@@ -1,3 +1,7 @@
+"use client";
+import { FaTelegramPlane, FaInstagram } from "react-icons/fa";
+// ...остальной код Header без изменений
+
 import { FaTelegramPlane, FaInstagram } from "react-icons/fa";
 
 export default function Header() {
