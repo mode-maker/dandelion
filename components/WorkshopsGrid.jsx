@@ -62,8 +62,8 @@ export default function WorkshopsGrid() {
   }, []);
 
   return (
-    <section id="workshops" className="py-14 transform-gpu will-change-[transform]">
-      <div className="max-w-[1200px] mx-auto px-6">
+<section id="workshops" className="py-14 scroll-mt-24 lg:scroll-mt-28">
+  <div className="max-w-[1200px] mx-auto px-6">
         <div className="grid grid-cols-3 gap-10">
           {ITEMS.map((it, i) => (
             <Card key={i} item={it} onMore={() => setModal(it)} />
