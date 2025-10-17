@@ -46,7 +46,9 @@ export default function Reviews() {
   return (
     <section id="reviews" className="w-full px-8 xl:px-16 2xl:px-24 py-24">
       <div className="max-w-7xl mx-auto">
-        <h2 className={`${caveat.className} text-5xl leading-none mb-10 text-[#1E1F1A]`}>
+        <h2 className={`${caveat.className} text-5xl leading-none mb-10 text-[#E7E8E0] text-center`}>
+           Отзывы
+         </h2>
           Отзывы
         </h2>
 
