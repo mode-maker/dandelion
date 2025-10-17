@@ -2,6 +2,12 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { Caveat } from "next/font/google";
+
+const caveat = Caveat({
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "700"],
+});
 
 const REVIEWS = [
   {
@@ -16,11 +22,10 @@ const REVIEWS = [
       "Очень понравился флорариум — аккуратно собран, растения здоровые, композиция продумана. Упаковка была нарядной, подарить было приятно. Доставка вовремя, общение — вежливое. Обязательно вернусь ещё!",
   },
   {
-  id: 2,
-  name: "Диана П.",
-  role: "Мастер-класс выходного дня",
-  photo: "/reviews/diana.jpg",
-
+    id: 2,
+    name: "Диана П.",
+    role: "Мастер-класс выходного дня",
+    photo: "/reviews/diana.jpg",
     rating: 5,
     short:
       "Классная атмосфера и понятные объяснения. Ушёл с красивой композицией!",
@@ -65,7 +70,7 @@ export default function Reviews() {
     <section id="reviews" className="relative py-16 md:py-24">
       <div className="container mx-auto px-4">
         <h2
-          className="text-center text-4xl md:text-5xl font-semibold tracking-tight"
+          className={`${caveat.className} text-center text-4xl md:text-5xl font-bold tracking-tight`}
           style={{ color: "#E7E8E0" }}
         >
           Отзывы
