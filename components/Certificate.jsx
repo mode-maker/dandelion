@@ -18,28 +18,53 @@ const caveat = Caveat({
 // ⚠️ замени на свой ник/ссылку
 const TG = "https://t.me/dandelion_craft_studio";
 
+// ограничения для суммы
+const MIN = 1000;
+const MAX = 100000;
+
 export default function Certificate() {
   const [amount, setAmount] = useState(3000);
   const [custom, setCustom] = useState("");
   const [name, setName] = useState("");
 
-  // если введена “Другая сумма” — используем её
+  // нормализуем «Другая сумма»
+  const normalizedCustom = useMemo(() => {
+    // оставляем только цифры
+    const digits = custom.replace(/\D+/g, "");
+    if (!digits) return "";
+    // форматируем (разделители тысяч)
+    return Number(digits).toLocaleString("ru-RU");
+  }, [custom]);
+
+  // итоговая сумма
   const finalAmount = useMemo(() => {
-    const v = Number(String(custom).replace(/\D+/g, ""));
-    return v > 0 ? v : amount;
+    const raw = Number(custom.replace(/\D+/g, ""));
+    // если в «Другая сумма» есть валидное число — используем его, иначе «amount»
+    let value = raw > 0 ? raw : amount;
+
+    // ограничиваем
+    if (value < MIN) value = MIN;
+    if (value > MAX) value = MAX;
+
+    return value;
   }, [amount, custom]);
 
   const openTelegram = () => {
-    const text = `Здравствуйте! Хочу оформить подарочный сертификат Dandelion на ${finalAmount} ₽.${name ? ` Имя получателя: ${name}.` : ""} Подскажите, как оплатить и получить.`;
+    const text = `Здравствуйте! Хочу оформить подарочный сертификат Dandelion на ${finalAmount.toLocaleString(
+      "ru-RU"
+    )} ₽.${name ? ` Имя получателя: ${name}.` : ""} Подскажите, как оплатить и получить.`;
     const url = `${TG}?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };
 
   return (
-    <section className="py-16">
+    // якорь + запас под фикс-хедер
+    <section id="certificate" className="py-16 scroll-mt-24 lg:scroll-mt-28">
       <div className="max-w-[1200px] mx-auto px-6">
         {/* Заголовок */}
-        <h2 className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] tracking-wide text-center mb-8`}>
+        <h2
+          className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] tracking-wide text-center mb-8`}
+        >
           ПОДАРОЧНЫЙ СЕРТИФИКАТ
         </h2>
 
@@ -69,7 +94,7 @@ export default function Certificate() {
 
               {/* Быстрые факты */}
               <ul className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[14px] text-[#3b3b3b]">
-                <li>• Номинал: от 1 000 ₽</li>
+                <li>• Номинал: от {MIN.toLocaleString("ru-RU")} ₽</li>
                 <li>• Срок действия: 6 месяцев</li>
                 <li>• Электронный PDF за 5–10 минут</li>
                 <li>• Печатный — по договорённости</li>
@@ -77,19 +102,28 @@ export default function Certificate() {
 
               {/* Суммы */}
               <div className="mt-6">
-                <div className={`${manrope.className} text-[16px] font-semibold text-[#1d1d1d] mb-2`}>
+                <label
+                  htmlFor="certificate-amount"
+                  className={`${manrope.className} block text-[16px] font-semibold text-[#1d1d1d] mb-2`}
+                >
                   Выберите сумму
-                </div>
-                <div className="flex flex-wrap gap-2">
+                </label>
+                <div className="flex flex-wrap gap-2" id="certificate-amount">
                   {[1000, 2000, 3000, 5000, 7000].map((v) => (
                     <button
                       key={v}
                       type="button"
-                      onClick={() => { setAmount(v); setCustom(""); }}
+                      aria-pressed={finalAmount === v && !custom}
+                      onClick={() => {
+                        setAmount(v);
+                        setCustom("");
+                      }}
                       className={`rounded-md px-4 py-2 text-[14px] transition
-                        ${finalAmount === v && !custom
-                          ? "bg-[#3F3F3F] text-[#E7E8E0]"
-                          : "bg-white/90 text-[#222] hover:-translate-y-0.5 hover:shadow-md"}`}
+                        ${
+                          finalAmount === v && !custom
+                            ? "bg-[#3F3F3F] text-[#E7E8E0]"
+                            : "bg-white/90 text-[#222] hover:-translate-y-0.5 hover:shadow-md"
+                        }`}
                     >
                       {v.toLocaleString("ru-RU")} ₽
                     </button>
@@ -99,22 +133,39 @@ export default function Certificate() {
                   <div className="flex items-center gap-2 ml-1">
                     <input
                       inputMode="numeric"
+                      aria-label="Другая сумма"
                       placeholder="Другая сумма"
-                      value={custom}
+                      value={normalizedCustom}
                       onChange={(e) => setCustom(e.target.value)}
-                      className="rounded-md bg-white/90 px-3 py-2 text-[14px] w-[140px]
-                                 outline-none ring-1 ring-black/10 focus:ring-black/20"
+                      className={`rounded-md bg-white/90 px-3 py-2 text-[14px] w-[140px]
+                                 outline-none ring-1 ring-black/10 focus:ring-black/20
+                                 ${
+                                   custom.trim()
+                                     ? "ring-[#3F3F3F]/30"
+                                     : ""
+                                 }`}
                     />
                   </div>
                 </div>
+
+                {/* Подсказка по лимитам */}
+                {custom.trim() && (
+                  <div className="mt-1 text-[12px] text-[#444]">
+                    Сумма от {MIN.toLocaleString("ru-RU")} до {MAX.toLocaleString("ru-RU")} ₽
+                  </div>
+                )}
               </div>
 
               {/* Имя получателя (необязательно) */}
               <div className="mt-4">
-                <div className={`${manrope.className} text-[16px] font-semibold text-[#1d1d1d] mb-2`}>
+                <label
+                  htmlFor="certificate-name"
+                  className={`${manrope.className} block text-[16px] font-semibold text-[#1d1d1d] mb-2`}
+                >
                   Имя получателя (необязательно)
-                </div>
+                </label>
                 <input
+                  id="certificate-name"
                   type="text"
                   placeholder="Например: Анна"
                   value={name}
