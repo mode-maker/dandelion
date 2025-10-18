@@ -3,21 +3,19 @@
 
 import { useEffect, useRef } from "react";
 
-/**
- * Реалистичное поле одуванчиков на canvas:
- * - каждая "шапочка" независима
- * - движение медленное, плавное, с индивидуальным "ветром"
- * - летает по всей высоте страницы (world), рисуем с учётом прокрутки
- * - отскакивают от мировых границ (0..pageHeight)
- * - уважает prefers-reduced-motion
- */
 export default function BackgroundDandelionField({
-  count = 200,            // кол-во шапочек
-  minR = 7,             // радиус кроны min
-  maxR = 30,             // радиус кроны max
-  minSpeed = 50,          // px/сек (было ~скорее) — медленнее => 6..18
-  maxSpeed = 100,
-  baseOpacity = 0.10,    // общая заметность
+  count = 26,
+  minR = 13,
+  maxR = 24,
+  minSpeed = 50,    // px/сек
+  maxSpeed = 100,   // px/сек
+  baseOpacity = 0.10,
+  stemsMin = 16,
+  stemsMax = 26,
+  // сколько минимум хотим видеть на экране одновременно
+  minVisible = 10,
+  // какая доля семён создаётся сразу в видимой зоне
+  viewportSpawnRatio = 0.6,
 } = {}) {
   const canvasRef = useRef(null);
   const rafRef = useRef(0);
@@ -29,20 +27,23 @@ export default function BackgroundDandelionField({
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
 
     const state = {
-      vw: 0, vh: 0,           // размер вьюпорта
-      worldH: 0,              // высота мира = высота страницы
+      vw: 0,
+      vh: 0,
+      worldH: 0,
+      scrollY: window.scrollY || 0,
       seeds: [],
-      reduced: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false,
       last: performance.now(),
       t0: performance.now(),
-      scrollY: window.scrollY || window.pageYOffset || 0,
+      reduced: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false,
     };
 
     const rnd  = (a, b) => a + Math.random() * (b - a);
     const rndi = (a, b) => Math.floor(rnd(a, b + 1));
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const invLerp = (a, b, v) => (v - a) / (b - a);
 
-    // простая "шумовая" функция (сумма синусов с разными фазами)
+    // «мягкий шум» — сумма синусов для курса
     const noise1 = (t, s1, s2, p1, p2) =>
       Math.sin(t * s1 + p1) * 0.6 + Math.sin(t * s2 + p2) * 0.4;
 
@@ -66,106 +67,120 @@ export default function BackgroundDandelionField({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
-    const createSeed = () => {
+    // фабрика одной «шапочки»
+    const makeSeed = ({ inViewport = false }) => {
       const r = rnd(minR, maxR);
+      // число «лучиков» зависит от размера (пушистость)
+      const t = invLerp(minR, maxR, r);
+      const stems = Math.round(lerp(stemsMin, stemsMax, clamp(t, 0, 1)));
+
+      // стартовые координаты: либо в видимой зоне, либо по всему миру
+      const x = rnd(r + 8, state.vw - r - 8);
+      const y = inViewport
+        ? rnd(state.scrollY + r + 8, state.scrollY + state.vh - r - 8)
+        : rnd(r + 8, state.worldH - r - 8);
+
       const speed = rnd(minSpeed, maxSpeed);     // px/sec
       const dir = rnd(0, Math.PI * 2);
       const phase = Math.random() * 1000;
 
       return {
-        // мировые координаты (по всей странице)
-        x: rnd(r + 8, state.vw - r - 8),
-        y: rnd(r + 8, state.worldH - r - 8),
-
-        // скорость как вектор + индивидуальный "шумовой ветер"
-        speed,               // модуль скорости
-        heading: dir,        // текущий курс (рад)
-        r,
-
-        // "строение" шапочки
-        stems: rndi(16, 26),
-        rot: rnd(0, Math.PI * 2),         // поворот шапки (рад)
-        rotVel: rnd(-0.15, 0.15),         // °/сек → ~рад/сек (ниже пересчитаем)
+        x, y, r, stems,
+        speed,
+        heading: dir,
+        rot: rnd(0, Math.PI * 2),
+        rotVel: rnd(-0.15, 0.15), // град/сек (пересчитаем в рад/сек при шаге)
         stroke: `rgba(238,240,234,${0.75 + Math.random() * 0.15})`,
         alpha: baseOpacity * (0.75 + Math.random() * 0.6),
-
-        // индивидуальные параметры шума (частоты/фазы)
-        n1: 0.25 + Math.random() * 0.35,  // Гц-эквивалент для noise по heading
+        // индивидуальные параметры «ветра/шума»
+        n1: 0.25 + Math.random() * 0.35,
         n2: 0.12 + Math.random() * 0.20,
         p1: Math.random() * 10,
         p2: Math.random() * 10,
-        wx: 0.05 + Math.random() * 0.20,  // индивидуальная «ветренность» по X
-        wy: 0.04 + Math.random() * 0.16,  // по Y
+        wx: 0.05 + Math.random() * 0.20,
+        wy: 0.04 + Math.random() * 0.16,
         phase,
       };
     };
 
     const init = () => {
       measure();
-      state.seeds = Array.from({ length: count }).map(createSeed);
+      // Часть сразу в видимой зоне — чтобы ты «сразу увидел» увеличение count
+      const nInView = Math.max(1, Math.floor(count * viewportSpawnRatio));
+      const nWorld  = Math.max(0, count - nInView);
+      const seeds = [];
+      for (let i = 0; i < nInView; i++) seeds.push(makeSeed({ inViewport: true }));
+      for (let i = 0; i < nWorld;  i++) seeds.push(makeSeed({ inViewport: false }));
+      state.seeds = seeds;
       state.last = performance.now();
       draw(state.last);
     };
 
     const onScroll = () => {
-      state.scrollY = window.scrollY || window.pageYOffset || 0;
+      state.scrollY = window.scrollY || 0;
     };
-
     const onResize = () => {
       measure();
-      // убедимся, что мир не «съел» шапочки: подрежем Y в пределах мира
       for (const s of state.seeds) {
         s.y = clamp(s.y, s.r + 8, state.worldH - s.r - 8);
       }
     };
 
     const step = (s, dtSec, now) => {
-      // dtSec — секунды
-      // шум для курса (делает движение плавно "живым", без дрожи)
-      const t = (now - state.t0) / 1000; // сек
-      const turn = noise1(t, s.n1, s.n2, s.p1, s.p2) * 0.25; // радиан/сек * вес
+      const t = (now - state.t0) / 1000;
+
+      // мягкий поворот курса
+      const turn = noise1(t, s.n1, s.n2, s.p1, s.p2) * 0.25;
       s.heading += turn * dtSec;
 
-      // «ветер» — независим у каждой шапочки, очень слабый, медленный
-      const wX = Math.sin((t + s.phase) * s.wx) * 6;  // px/сек
-      const wY = Math.cos((t + s.phase) * s.wy) * 4;  // px/сек
+      // индивидуальный «ветер»
+      const wX = Math.sin((t + s.phase) * s.wx) * 6;
+      const wY = Math.cos((t + s.phase) * s.wy) * 4;
 
-      // скорость = базовый курс + ветер
       const vx = Math.cos(s.heading) * s.speed + wX;
       const vy = Math.sin(s.heading) * s.speed + wY;
 
-      // движение в мировых координатах
       s.x += vx * dtSec;
       s.y += vy * dtSec;
 
-      // собственная плавная ротация (градусы/сек → рад/сек)
       s.rot += (s.rotVel * Math.PI / 180) * dtSec;
 
-      // отскок от мировых границ (0..vw) x (0..worldH)
+      // отскок от «мировых» границ
       const pad = s.r + 6;
-      if (s.x < pad) {
-        s.x = pad;
-        s.heading = Math.PI - s.heading; // отражение
-      } else if (s.x > state.vw - pad) {
-        s.x = state.vw - pad;
-        s.heading = Math.PI - s.heading;
-      }
-      if (s.y < pad) {
-        s.y = pad;
-        s.heading = -s.heading;
-      } else if (s.y > state.worldH - pad) {
-        s.y = state.worldH - pad;
-        s.heading = -s.heading;
+      if (s.x < pad)            { s.x = pad;               s.heading = Math.PI - s.heading; }
+      else if (s.x > state.vw - pad) { s.x = state.vw - pad;     s.heading = Math.PI - s.heading; }
+      if (s.y < pad)            { s.y = pad;               s.heading = -s.heading; }
+      else if (s.y > state.worldH - pad) { s.y = state.worldH - pad; s.heading = -s.heading; }
+    };
+
+    // Поддерживаем минимум видимых: если на экране мало — переселяем «далёкие» ближе
+    let visibilityCheckTimer = 0;
+    const ensureMinVisible = () => {
+      const margin = 40;
+      const top = state.scrollY - margin;
+      const bottom = state.scrollY + state.vh + margin;
+      const visible = state.seeds.filter(s => s.y >= top && s.y <= bottom);
+      if (visible.length >= minVisible) return;
+
+      // переселим несколько самых дальних по Y
+      const need = minVisible - visible.length;
+      let moved = 0;
+      for (const s of state.seeds) {
+        if (moved >= need) break;
+        const sy = s.y;
+        if (sy < top - 2*state.vh || sy > bottom + 2*state.vh) {
+          s.x = rnd(s.r + 8, state.vw - s.r - 8);
+          s.y = rnd(state.scrollY + s.r + 8, state.scrollY + state.vh - s.r - 8);
+          s.heading = rnd(0, Math.PI * 2);
+          moved++;
+        }
       }
     };
 
     const drawSeed = (s) => {
-      // проецируем мировые координаты в экранные с учётом прокрутки
       const sx = s.x;
       const sy = s.y - state.scrollY;
-
-      // если не видимая область — можно не рисовать для экономии
-      if (sy < -s.r * 1.8 || sy > state.vh + s.r * 1.8) return;
+      if (sy < -s.r * 2 || sy > state.vh + s.r * 2) return;
 
       ctx.save();
       ctx.globalAlpha = s.alpha;
@@ -180,13 +195,11 @@ export default function BackgroundDandelionField({
         const ex = Math.cos(a) * len;
         const ey = Math.sin(a) * len;
 
-        // стержень
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(ex, ey);
         ctx.stroke();
 
-        // «парашют» — короткая дуга на конце
         const nx = -Math.sin(a);
         const ny = Math.cos(a);
         ctx.beginPath();
@@ -200,7 +213,6 @@ export default function BackgroundDandelionField({
         ctx.stroke();
       }
 
-      // сердцевина
       ctx.fillStyle = "rgba(231,232,224,0.9)";
       ctx.beginPath();
       ctx.arc(0, 0, Math.max(1.2, s.r * 0.15), 0, Math.PI * 2);
@@ -210,31 +222,47 @@ export default function BackgroundDandelionField({
     };
 
     const draw = (now) => {
-      const dtMs = Math.min(48, now - state.last); // ограничим скачки
+      const dt = Math.min(48, now - state.last);
       state.last = now;
-      const dtSec = dtMs / 1000;
+      const dtSec = dt / 1000;
 
       ctx.clearRect(0, 0, state.vw, state.vh);
 
       if (!state.reduced) {
         for (const s of state.seeds) step(s, dtSec, now);
+        visibilityCheckTimer += dt;
+        if (visibilityCheckTimer > 1200) { // раз в ~1.2с
+          visibilityCheckTimer = 0;
+          ensureMinVisible();
+        }
       }
-
       for (const s of state.seeds) drawSeed(s);
 
       if (!state.reduced) rafRef.current = requestAnimationFrame(draw);
     };
 
+    // init + события
+    const onScroll = () => (state.scrollY = window.scrollY || 0);
+    const onResizeThrottled = () => {
+      cancelAnimationFrame(rafRef.current);
+      onResize();
+      rafRef.current = requestAnimationFrame(draw);
+    };
+
+    measure();
     init();
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", onResizeThrottled);
     window.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", onResizeThrottled);
       window.removeEventListener("scroll", onScroll);
     };
-  }, [count, minR, maxR, minSpeed, maxSpeed, baseOpacity]);
+  }, [
+    count, minR, maxR, minSpeed, maxSpeed, baseOpacity,
+    stemsMin, stemsMax, minVisible, viewportSpawnRatio
+  ]);
 
   return (
     <canvas
