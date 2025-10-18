@@ -9,7 +9,7 @@ export default function Hero() {
   return (
     // Фон секции прозрачный — виден глобальный градиент
     <section className="relative overflow-hidden">
-      <div className="relative max-w-[1200px] mx-auto px-6 py-28 text-center">
+      <div className="relative max-w-[1200px] mx-auto px-6 pt-28 pb-10 md:pb-12 text-center">
         {/* Логотип */}
         <img
           src="/hero/logo.png"
