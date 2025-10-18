@@ -11,17 +11,17 @@ export default function RootLayout({ children }) {
   return (
     <html lang="ru">
       <body className="antialiased">
-        {/* твой базовый градиент */}
+        {/* базовый фон (градиент из globals.css) */}
         <div className="site-bg" />
 
-        {/* одуванчиковое поле на canvas */}
+        {/* анимированное поле одуванчиков на canvas */}
         <BackgroundDandelionField
-          count={26}           // можно 18–34
+          count={26}
           minR={13}
           maxR={24}
           minSpeed={0.06}
           maxSpeed={0.22}
-          baseOpacity={0.10}   // 0.08–0.16 под вкус
+          baseOpacity={0.10}
         />
 
         {children}
