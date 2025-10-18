@@ -12,11 +12,11 @@ import { useEffect, useRef } from "react";
  * - уважает prefers-reduced-motion
  */
 export default function BackgroundDandelionField({
-  count = 26,            // кол-во шапочек
+  count = 85,            // кол-во шапочек
   minR = 13,             // радиус кроны min
   maxR = 24,             // радиус кроны max
-  minSpeed = 6,          // px/сек (было ~скорее) — медленнее => 6..18
-  maxSpeed = 18,
+  minSpeed = 12,          // px/сек (было ~скорее) — медленнее => 6..18
+  maxSpeed = 24,
   baseOpacity = 0.10,    // общая заметность
 } = {}) {
   const canvasRef = useRef(null);
