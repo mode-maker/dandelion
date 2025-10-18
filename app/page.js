@@ -7,6 +7,8 @@ import ReadyTerrariums from "../components/ReadyTerrariums";
 import Events from "../components/Events";
 import Certificate from "../components/Certificate";
 import Footer from "../components/Footer";
+import Gallery from "../components/Gallery";
+
 
 export default function Page() {
   return (
