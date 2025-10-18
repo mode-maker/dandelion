@@ -15,8 +15,8 @@ export default function BackgroundDandelionField({
   count = 137,            // кол-во шапочек
   minR = 7,             // радиус кроны min
   maxR = 30,             // радиус кроны max
-  minSpeed = 12,          // px/сек (было ~скорее) — медленнее => 6..18
-  maxSpeed = 24,
+  minSpeed = 24,          // px/сек (было ~скорее) — медленнее => 6..18
+  maxSpeed = 48,
   baseOpacity = 0.10,    // общая заметность
 } = {}) {
   const canvasRef = useRef(null);
