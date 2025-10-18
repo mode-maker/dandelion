@@ -16,19 +16,17 @@ export default function RootLayout({ children }) {
 
         {/* анимированное поле одуванчиков на canvas */}
        <BackgroundDandelionField
-  count={32}
+  count={32}     // больше/меньше объектов
   minR={65}
-  maxR={120}
+  maxR={120}     // размер шапочек (радиус в px)
   minSpeed={4}
-  maxSpeed={10}
+  maxSpeed={10}  // скорость в px/сек
   baseOpacity={0.10}
   stemsMin={18}
   stemsMax={34}
   minVisible={18}
   viewportSpawnRatio={0.8}
 />
-
-
         {children}
       </body>
     </html>
