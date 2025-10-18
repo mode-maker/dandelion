@@ -1,24 +1,27 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-* { box-sizing: border-box; }
-
-/* Глобальный фон: мягкий вертикальный градиент фирменного зелёного */
-:root{
-  --brand-top: #5F6F65;  /* верх */
-  --brand-mid: #6E7E74;  /* середина чуть светлее */
-  --brand-bot: #5F6F65;  /* низ */
+/* ========= Глобальная палитра (можно подстроить) ========= */
+:root {
+  --bg-0: #5f756b; /* базовый зелёный */
+  --bg-1: #6d8277; /* светлее */
+  --bg-2: #4e665c; /* темнее */
 }
 
-html, body { height: 100%; }
-
-body{
-  background: linear-gradient(180deg, var(--brand-top) 0%, var(--brand-mid) 50%, var(--brand-bot) 100%);
+/* ========= Безопасный фон для всего сайта ========= */
+/* Только фон. Никаких позиций/слоёв/анимаций — ломаться нечему. */
+html, body {
+  min-height: 100%;
+  background-color: var(--bg-0);
+  /* мягкий вертикальный градиент + два больших радиальных пятна по краям */
+  background-image:
+    radial-gradient(1000px 700px at -10% -10%, rgba(255,255,255,.10), transparent 55%),
+    radial-gradient(900px 650px at 110% 110%, rgba(0,0,0,.15), transparent 55%),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 55%, var(--bg-2) 120%);
+  background-repeat: no-repeat;
+  background-attachment: scroll;  /* важно для iOS/Safari, чтобы ничего не “залипало” */
+  background-size: cover, cover, cover;
 }
-/* скрыть горизонтальный скроллбар у ленты карточек */
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-html {
-  scroll-behavior: smooth;
+
+/* чтобы Tailwind/браузерные стили не перекрывали фон случайной белой подложкой */
+body {
+  color: inherit;
+  background-blend-mode: normal;
 }
