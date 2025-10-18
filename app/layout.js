@@ -15,14 +15,19 @@ export default function RootLayout({ children }) {
         <div className="site-bg" />
 
         {/* анимированное поле одуванчиков на canvas */}
-        <BackgroundDandelionField
-          count={26}
-          minR={13}
-          maxR={24}
-          minSpeed={0.06}
-          maxSpeed={0.22}
-          baseOpacity={0.10}
-        />
+       <BackgroundDandelionField
+  count={32}
+  minR={65}
+  maxR={120}
+  minSpeed={4}
+  maxSpeed={10}
+  baseOpacity={0.10}
+  stemsMin={18}
+  stemsMax={34}
+  minVisible={18}
+  viewportSpawnRatio={0.8}
+/>
+
 
         {children}
       </body>
