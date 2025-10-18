@@ -3,53 +3,40 @@
 import { useCallback } from "react";
 import Link from "next/link";
 import { FaTelegramPlane, FaInstagram } from "react-icons/fa";
+import { Manrope } from "next/font/google";
+
+const manrope = Manrope({
+  subsets: ["cyrillic", "latin"],
+  weight: ["500", "600", "700"],
+  display: "swap",
+});
 
 export default function Header() {
-  // единый хендлер для плавного скролла к якорям
-  const goTo = useCallback((target) => (e) => {
-    e.preventDefault();
-    const el = document.getElementById(target);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
+  // плавная прокрутка к секциям
+  const goTo = useCallback(
+    (target) => (e) => {
+      e.preventDefault();
+      const el = document.getElementById(target);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    []
+  );
 
   return (
-    <header className="w-full">
+    <header className={`${manrope.className} w-full`}>
       <div className="max-w-[1200px] mx-auto px-6 py-4 flex items-center justify-between">
         {/* ЛЕВО: меню */}
         <nav className="flex items-center gap-6 text-[#ECEDE8]">
-          {/* Мастер-классы */}
-          <Link
-            href="#workshops"
-            onClick={goTo("workshops")}
-            className="hover:opacity-90"
-          >
+          <Link href="#workshops" onClick={goTo("workshops")} className="hover:opacity-90">
             Мастер-классы
           </Link>
-
-          {/* ГОТОВЫЕ ФЛОРАРИУМЫ */}
-          <Link
-            href="#ready"
-            onClick={goTo("ready")}
-            className="hover:opacity-90"
-          >
+          <Link href="#ready" onClick={goTo("ready")} className="hover:opacity-90">
             Флорариумы
           </Link>
-
-          {/* СЕРТИФИКАТ */}
-          <Link
-            href="#certificate"
-            onClick={goTo("certificate")}
-            className="hover:opacity-90"
-          >
+          <Link href="#certificate" onClick={goTo("certificate")} className="hover:opacity-90">
             Сертификат
           </Link>
-
-          {/* ВИДЕО / МЕРОПРИЯТИЯ */}
-          <Link
-            href="#events"
-            onClick={goTo("events")}
-            className="hover:opacity-90"
-          >
+          <Link href="#events" onClick={goTo("events")} className="hover:opacity-90">
             Видео
           </Link>
         </nav>
