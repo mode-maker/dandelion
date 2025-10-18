@@ -1,40 +1,21 @@
+// app/layout.js
 import "./globals.css";
-import { Montserrat } from "next/font/google";
-
-const mont = Montserrat({
-  subsets: ["cyrillic", "latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
 
 export const metadata = {
-  title: "DANDELION — сайт на коде",
-  description: "Переводим дизайн из Framer в код",
+  title: "Dandelion",
+  description: "Цветочная мастерская — флорариумы и мастер-классы",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="ru">
-      {/* Без bg-white — чтобы был виден глобальный градиент из globals.css */}
-      <body className={`${mont.className} min-h-screen text-zinc-900 antialiased`}>
-        {children}
-      </body>
-        // app/layout.js
-import "./globals.css";
-
-export default function RootLayout({ children }) {
-  return (
-    <html lang="ru">
+      {/* head оставляем пустым — Next сам подставит метаданные */}
       <body className="antialiased">
-        {/* Фон-слой */}
+        {/* Фон-слой. Класс .site-bg описан в globals.css */}
         <div className="site-bg" />
 
         {children}
       </body>
-    </html>
-  );
-}
-
     </html>
   );
 }
