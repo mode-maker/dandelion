@@ -9,10 +9,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="ru">
-      {/* head оставляем пустым — Next сам подставит метаданные */}
       <body className="antialiased">
-        {/* Фон-слой. Класс .site-bg описан в globals.css */}
+        {/* фоновые слои (оба под контентом) */}
         <div className="site-bg" />
+        <div className="bg-blobs" />
 
         {children}
       </body>
