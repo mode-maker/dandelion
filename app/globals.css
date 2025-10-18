@@ -55,32 +55,3 @@ body{
 html {
   scroll-behavior: smooth;
 }
-/* ==== Паттерн «семян одуванчика» — средняя заметность ==== */
-.bg-seeds {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: .10;                 /* ↑ было .06 */
-  mix-blend-mode: soft-light;   /* мягкое наложение на зелёный фон */
-  background-image: url("data:image/svg+xml;utf8,\
-<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160' fill='none'>\
-  <g stroke='%23ffffff' stroke-opacity='.65' stroke-width='1.2'>\
-    <path d='M36 90 q12 -22 34 -12'/>\
-    <path d='M70 78 l10 -14'/>\
-    <path d='M70 78 l-8 -6'/>\
-    <path d='M116 34 q-10 22 12 32'/>\
-    <path d='M128 66 l14 8'/>\
-    <path d='M128 66 l-12 6'/>\
-    <path d='M18 126 q26 -8 34 12'/>\
-    <path d='M52 134 l10 12'/>\
-    <path d='M52 134 l-8 12'/>\
-  </g>\
-</svg>");
-  background-size: 260px 260px; /* ↑ плотнее сетка */
-  background-repeat: repeat;
-}
-
-@media (max-width: 640px) {
-  .bg-seeds { opacity: .08; background-size: 240px 240px; }
-}
