@@ -7,13 +7,13 @@ export default function BackgroundDandelionField({
   count = 26,
   minR = 13,
   maxR = 24,
-  minSpeed = 6,    // px/сек — ↓ сюда смотри, если хочешь медленнее/быстрее
-  maxSpeed = 18,   // px/сек
+  minSpeed = 6,   // px/сек
+  maxSpeed = 18,  // px/сек
   baseOpacity = 0.10,
   stemsMin = 16,
   stemsMax = 26,
-  minVisible = 10,           // хотим видеть минимум семян на экране
-  viewportSpawnRatio = 0.6,  // доля сразу появляющихся в видимой области
+  // хотим, чтобы часть семян точно была видна сразу:
+  viewportSpawnRatio = 0.6, // 0..1 — доля семян, создаваемых в текущем вьюпорте
 } = {}) {
   const canvasRef = useRef(null);
   const rafRef = useRef(0);
@@ -36,12 +36,11 @@ export default function BackgroundDandelionField({
     };
 
     const rnd  = (a, b) => a + Math.random() * (b - a);
-    const rndi = (a, b) => Math.floor(rnd(a, b + 1));
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const lerp = (a, b, t) => a + (b - a) * t;
     const invLerp = (a, b, v) => (v - a) / (b - a);
 
-    // мягкий «шум» для курса
+    // мягкий шум для курса (сумма синусов)
     const noise1 = (t, s1, s2, p1, p2) =>
       Math.sin(t * s1 + p1) * 0.6 + Math.sin(t * s2 + p2) * 0.4;
 
@@ -65,6 +64,7 @@ export default function BackgroundDandelionField({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
+    // создать одно "семя"
     const makeSeed = ({ inViewport = false }) => {
       const r = rnd(minR, maxR);
       const t = invLerp(minR, maxR, r);
@@ -99,24 +99,30 @@ export default function BackgroundDandelionField({
 
     const init = () => {
       measure();
-      const nInView = Math.max(1, Math.floor(count * viewportSpawnRatio));
+
+      // генерим часть в видимой зоне, часть — по всей странице
+      const nInView = Math.max(0, Math.floor(count * clamp(viewportSpawnRatio, 0, 1)));
       const nWorld  = Math.max(0, count - nInView);
+
       const seeds = [];
       for (let i = 0; i < nInView; i++) seeds.push(makeSeed({ inViewport: true }));
       for (let i = 0; i < nWorld;  i++) seeds.push(makeSeed({ inViewport: false }));
+
       state.seeds = seeds;
       state.last = performance.now();
       draw(state.last);
     };
 
-    // ——— ВНИМАНИЕ: onScroll объявляем ОДИН раз ———
+    // единственный onScroll — просто обновляет координату прокрутки
     const onScroll = () => {
       state.scrollY = window.scrollY || 0;
     };
 
     const onResize = () => {
       measure();
+      // НИКОГО НЕ ПЕРЕСОЗДАЁМ и НЕ ПЕРЕСЕЛЯЕМ — только держим в границах мира
       for (const s of state.seeds) {
+        s.x = clamp(s.x, s.r + 8, state.vw - s.r - 8);
         s.y = clamp(s.y, s.r + 8, state.worldH - s.r - 8);
       }
     };
@@ -124,6 +130,7 @@ export default function BackgroundDandelionField({
     const step = (s, dtSec, now) => {
       const t = (now - state.t0) / 1000;
 
+      // мягкий поворот курса + индивидуальный "ветер"
       const turn = noise1(t, s.n1, s.n2, s.p1, s.p2) * 0.25;
       s.heading += turn * dtSec;
 
@@ -138,6 +145,7 @@ export default function BackgroundDandelionField({
 
       s.rot += (s.rotVel * Math.PI / 180) * dtSec;
 
+      // отскок от границ мира (без телепортаций)
       const pad = s.r + 6;
       if (s.x < pad) { s.x = pad; s.heading = Math.PI - s.heading; }
       else if (s.x > state.vw - pad) { s.x = state.vw - pad; s.heading = Math.PI - s.heading; }
@@ -145,32 +153,12 @@ export default function BackgroundDandelionField({
       else if (s.y > state.worldH - pad) { s.y = state.worldH - pad; s.heading = -s.heading; }
     };
 
-    // поддерживаем минимум видимых
-    let visibilityCheckTimer = 0;
-    const ensureMinVisible = () => {
-      const margin = 40;
-      const top = state.scrollY - margin;
-      const bottom = state.scrollY + state.vh + margin;
-      const visible = state.seeds.filter(s => s.y >= top && s.y <= bottom);
-      if (visible.length >= minVisible) return;
-
-      const need = minVisible - visible.length;
-      let moved = 0;
-      for (const s of state.seeds) {
-        if (moved >= need) break;
-        const sy = s.y;
-        if (sy < top - 2*state.vh || sy > bottom + 2*state.vh) {
-          s.x = rnd(s.r + 8, state.vw - s.r - 8);
-          s.y = rnd(state.scrollY + s.r + 8, state.scrollY + state.vh - s.r - 8);
-          s.heading = rnd(0, Math.PI * 2);
-          moved++;
-        }
-      }
-    };
-
     const drawSeed = (s) => {
+      // смещаем на текущий скролл; ничего не "подгружаем"
       const sx = s.x;
       const sy = s.y - state.scrollY;
+
+      // можно не рисовать далеко за экраном ради производительности:
       if (sy < -s.r * 2 || sy > state.vh + s.r * 2) return;
 
       ctx.save();
@@ -221,13 +209,7 @@ export default function BackgroundDandelionField({
 
       if (!state.reduced) {
         for (const s of state.seeds) step(s, dtSec, now);
-        visibilityCheckTimer += dt;
-        if (visibilityCheckTimer > 1200) {
-          visibilityCheckTimer = 0;
-          ensureMinVisible();
-        }
       }
-
       for (const s of state.seeds) drawSeed(s);
 
       if (!state.reduced) rafRef.current = requestAnimationFrame(draw);
@@ -250,10 +232,7 @@ export default function BackgroundDandelionField({
       window.removeEventListener("resize", onResizeThrottled);
       window.removeEventListener("scroll", onScroll);
     };
-  }, [
-    count, minR, maxR, minSpeed, maxSpeed, baseOpacity,
-    stemsMin, stemsMax, minVisible, viewportSpawnRatio
-  ]);
+  }, [count, minR, maxR, minSpeed, maxSpeed, baseOpacity, stemsMin, stemsMax, viewportSpawnRatio]);
 
   return (
     <canvas
