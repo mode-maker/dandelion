@@ -4,111 +4,96 @@ import { useEffect, useState } from "react";
 
 export default function Gallery() {
   const [items, setItems] = useState([]);
-  const [cursor, setCursor] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [visible, setVisible] = useState(12);
+  const [big, setBig] = useState(null); // { url, w, h }
 
-  const [lightbox, setLightbox] = useState(null); // { index }
-
-  const load = async (append = false, opts = {}) => {
-    setLoading(true);
-    const q = new URLSearchParams();
-    if (cursor && append) q.set("cursor", cursor);
-    if (opts.tag) q.set("tag", opts.tag);
-
-    const res = await fetch(`/api/gallery?${q}`, { cache: "no-store" });
-    const json = await res.json();
-    setLoading(false);
-    if (res.ok) {
-      setItems((prev) => append ? [...prev, ...json.items] : json.items);
-      setCursor(json.nextCursor);
-    } else {
-      console.error(json);
-    }
-  };
-
-  useEffect(() => { load(false); }, []);
-
-  // Лайтбокс навигация
   useEffect(() => {
-    const onKey = (e) => {
-      if (!lightbox) return;
-      if (e.key === "Escape") setLightbox(null);
-      if (e.key === "ArrowRight") setLightbox(({ index }) => ({ index: Math.min(index + 1, items.length - 1) }));
-      if (e.key === "ArrowLeft") setLightbox(({ index }) => ({ index: Math.max(index - 1, 0) }));
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [lightbox, items.length]);
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/gallery", { cache: "no-store" });
+        const json = await res.json();
+        if (!cancelled) setItems(json.items || []);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const showMore = () => setVisible((v) => v + 12);
 
   return (
-    <section id="gallery" className="py-16 scroll-mt-28">
+    <section id="gallery" className="py-16 scroll-mt-24 lg:scroll-mt-28">
       <div className="max-w-[1200px] mx-auto px-6">
-        <h2 className="text-[#ECEDE8] text-[28px] md:text-[32px] text-center tracking-wide mb-6">
-          Галерея с&nbsp;мероприятий
+        <h2 className="text-center text-[#ECEDE8] text-[28px] md:text-[32px] font-medium tracking-wide mb-8">
+          Галерея мастер-классов
         </h2>
 
-        {/* Masonry через CSS columns */}
-        <div
-          className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5 [column-fill:_balance]"
-        >
-          {items.map((it, idx) => (
-            <figure
+        {/* Сетка изображений */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {items.slice(0, visible).map((it) => (
+            <button
               key={it.id}
-              className="mb-5 break-inside-avoid rounded-xl overflow-hidden bg-black/5
-                         shadow-[0_6px_18px_rgba(0,0,0,0.25)] cursor-zoom-in"
-              onClick={() => setLightbox({ index: idx })}
+              className="group relative rounded-xl overflow-hidden bg-black/20"
+              onClick={() => setBig(it)}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={it.thumb}
+                src={it.url}
                 alt=""
+                className="block w-full h-48 md:h-44 lg:h-40 object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                 loading="lazy"
-                className="w-full h-auto transition-transform duration-300 will-change-transform hover:scale-[1.02]"
               />
-            </figure>
+              <div className="pointer-events-none absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+            </button>
           ))}
         </div>
 
-        <div className="mt-6 flex justify-center">
-          {cursor ? (
+        {/* Показать ещё */}
+        {visible < items.length && (
+          <div className="text-center mt-8">
             <button
-              disabled={loading}
-              onClick={() => load(true)}
-              className="rounded-md bg-white/10 text-[#ECEDE8] px-4 py-2 text-[14px] border border-white/15
-                         hover:-translate-y-0.5 hover:shadow-md transition"
+              onClick={showMore}
+              className="rounded-md bg-[#E7E8E0] text-[#222] px-5 py-2 text-[15px]
+                         transition hover:-translate-y-0.5 hover:shadow-md"
             >
-              {loading ? "Загрузка..." : "Показать ещё"}
+              Показать ещё
             </button>
-          ) : (
-            <div className="text-white/60 text-sm">Все фотографии загружены</div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Пусто */}
+        {items.length === 0 && (
+          <div className="text-center text-[#ECEDE8]/80">Пока нет фотографий</div>
+        )}
       </div>
 
-      {/* Лайтбокс */}
-      {lightbox && (
+      {/* Просмотр крупно */}
+      {big && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setLightbox(null)}
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-[2px] flex items-center justify-center p-4"
+          onClick={() => setBig(null)}
         >
-          <img
-            src={items[lightbox.index].full}
-            alt=""
-            className="max-w-[95vw] max-h-[90vh] object-contain"
+          <div
+            className="relative max-w-[90vw] max-h-[85vh] rounded-2xl overflow-hidden bg-[#222]"
             onClick={(e) => e.stopPropagation()}
-          />
-          {/* Стрелки */}
-          <button
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/80 text-3xl"
-            onClick={(e) => { e.stopPropagation(); setLightbox(({ index }) => ({ index: Math.max(index - 1, 0) })); }}
-          >‹</button>
-          <button
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 text-3xl"
-            onClick={(e) => { e.stopPropagation(); setLightbox(({ index }) => ({ index: Math.min(index + 1, items.length - 1) })); }}
-          >›</button>
-          <button
-            className="absolute right-3 top-3 text-white/80 text-2xl"
-            onClick={() => setLightbox(null)}
-          >✕</button>
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={big.url}
+              alt=""
+              className="block max-w-[90vw] max-h-[85vh] object-contain"
+            />
+            <button
+              className="absolute top-3 right-3 rounded-md bg-[#3F3F3F] text-[#E7E8E0] px-3 py-1.5 text-sm
+                         transition hover:opacity-90"
+              onClick={() => setBig(null)}
+            >
+              Закрыть
+            </button>
+          </div>
         </div>
       )}
     </section>
