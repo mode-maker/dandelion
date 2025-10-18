@@ -26,7 +26,7 @@ export default function Header() {
     <header className={`${manrope.className} w-full`}>
       <div className="max-w-[1200px] mx-auto px-6 py-4 flex items-center justify-between">
         {/* ЛЕВО: меню — тонкий шрифт */}
-        <nav className="flex items-center gap-6 text-[#ECEDE8] text-[18px] font-normal">
+        <nav className="flex items-center gap-6 text-[#ECEDE8] text-[20px] font-normal">
           <Link href="#workshops" onClick={goTo("workshops")} className="hover:opacity-90">
             Мастер-классы
           </Link>
