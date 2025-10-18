@@ -1,6 +1,6 @@
 // app/layout.js
 import "./globals.css";
-import BackgroundSeedsAnimated from "../components/BackgroundSeedsAnimated"; // <— ВАЖНО: Animated
+import BackgroundDandelionField from "../components/BackgroundDandelionField";
 
 export const metadata = {
   title: "Dandelion",
@@ -11,10 +11,18 @@ export default function RootLayout({ children }) {
   return (
     <html lang="ru">
       <body className="antialiased">
+        {/* твой базовый градиент */}
         <div className="site-bg" />
 
-        {/* семена (маленькие, плавающие) */}
-        <BackgroundSeedsAnimated count={12} minSize={14} maxSize={22} opacity={0.10} />
+        {/* одуванчиковое поле на canvas */}
+        <BackgroundDandelionField
+          count={26}           // можно 18–34
+          minR={13}
+          maxR={24}
+          minSpeed={0.06}
+          maxSpeed={0.22}
+          baseOpacity={0.10}   // 0.08–0.16 под вкус
+        />
 
         {children}
       </body>
