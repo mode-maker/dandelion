@@ -18,16 +18,6 @@ body{
   /* базовый цвет (на всякий случай) */
   background-color: var(--brand-mid);
 
-  /* два больших радиальных пятна + зелёный вертикальный градиент */
-  background-image:
-    radial-gradient(1200px 800px at -10% -10%, rgba(255,255,255,.10), transparent 60%),
-    radial-gradient(1000px 700px at 110% 110%, rgba(0,0,0,.15), transparent 60%),
-    linear-gradient(180deg, var(--brand-top) 0%, var(--brand-mid) 55%, var(--brand-bot) 120%);
-  background-repeat: no-repeat;
-  background-attachment: scroll; /* безопасно для iOS/Safari */
-  background-size: cover, cover, cover;
-}
-
 /* (опционально) лёгкая «тканевая» текстура поверх фона */
 body::after{
   content: "";
