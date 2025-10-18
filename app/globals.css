@@ -8,84 +8,71 @@
 /* =========================
    T H E M E  V A R S
    ========================= */
+/* ===== БАЗОВЫЙ ФОН (оставь как есть, если уже добавлял) ===== */
 :root{
-  /* База (тёмный зелёный) */
-  --bg-0: #1f2b26;
-  --bg-1: #24332d;
-  --bg-2: #2d3f37;
+  --brand-top: #5F6F65;
+  --brand-mid: #6E7E74;
+  --brand-bot: #5F6F65;
 
-  /* Оттенки «северного сияния» */
-  --aurora-1: #3a5a50; /* зелёный холодный */
-  --aurora-2: #506f64; /* бирюзово-зелёный */
-  --aurora-3: #6f8c85; /* светлый акцент */
-
-  /* Настройки интенсивности/скорости – регулируй смело */
-  --aurora-opacity: 0.25;   /* 0.15…0.35 — сила цветных пятен */
-  --noise-opacity:  0.05;   /* 0…0.08 — зерно поверх */
-  --vignette:       0.30;   /* 0.20…0.45 — виньетка снизу */
-  --blob-size:      60vmax; /* размер «облаков» */
-  --speed-1:        38s;    /* скорость 1-го облака */
-  --speed-2:        52s;    /* скорость 2-го облака */
-  --speed-3:        65s;    /* скорость 3-го облака */
+  /* интенсивность пятен (удобно крутить) */
+  --blob-light: rgba(255,255,255,0.08);
+  --blob-dark:  rgba(0,0,0,0.12);
 }
 
-/* Базовый тёмный градиент (задний слой) */
-body{
-  color:#ECEDE8;
+html, body { min-height: 100%; }
+
+.site-bg{
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
+  /* основа — спокойный вертикальный градиент */
   background:
-    radial-gradient(1000px 700px at 50% 115%, rgba(0,0,0,var(--vignette)), transparent 60%),
-    linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 55%, var(--bg-0) 100%);
-  background-attachment: scroll;
-  background-repeat: no-repeat;
-  min-height:100%;
+    linear-gradient(180deg, var(--brand-top) 0%, var(--brand-mid) 55%, var(--brand-bot) 120%);
 }
 
-/* ===== Анимированные «облака» Aurora =====
-   Три большие, сильно размытые пятна на разных слоях. */
-body::before{
-  content:"";
-  position:fixed; inset:-10vmax; z-index:-2; pointer-events:none;
+/* ===== BLOBS: статичные размытые «пятна» ===== */
+.site-bg::before{
+  content: "";
+  position: absolute;
+  inset: -8vh -8vw;         /* чуть шире краёв, чтобы не резались */
+  pointer-events: none;
+  z-index: 0;
+
+  /* несколько радиальных градиентов по углам и бокам */
   background:
-    radial-gradient(var(--blob-size) var(--blob-size) at 15% 25%, rgba(106, 150, 135, var(--aurora-opacity)), transparent 60%),
-    radial-gradient(calc(var(--blob-size) * 0.8) calc(var(--blob-size) * 0.8) at 85% 30%, rgba(80, 120, 105, var(--aurora-opacity)), transparent 60%),
-    radial-gradient(calc(var(--blob-size) * 1.1) calc(var(--blob-size) * 1.1) at 40% 85%, rgba(60, 100, 90, var(--aurora-opacity)), transparent 60%);
-  filter: blur(40px);
-  animation:
-    auroraMove1 var(--speed-1) linear infinite,
-    auroraMove2 var(--speed-2) linear infinite reverse,
-    auroraMove3 var(--speed-3) linear infinite;
-  mix-blend-mode: screen; /* мягкое «свечение» */
-  will-change: transform, filter;
+    radial-gradient(240px 170px at 12% 18%,  var(--blob-light), transparent 60%),
+    radial-gradient(320px 220px at 88% 30%,  var(--blob-dark),  transparent 65%),
+    radial-gradient(260px 180px at 25% 86%,  var(--blob-light), transparent 62%),
+    radial-gradient(300px 200px at 78% 82%,  var(--blob-dark),  transparent 66%);
+
+  filter: blur(18px);       /* мягкость пятен */
+  opacity: 1;               /* при желании ослабь до 0.7–0.85 */
 }
 
-/* Лёгкая «пылинка» (шум) поверх — делает фон живым */
-body::after{
-  content:"";
-  position:fixed; inset:0; z-index:-1; pointer-events:none;
-  opacity: var(--noise-opacity);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cdefs%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0.6'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3C/defs%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size:160px 160px;
+/* Дополнительная «тканевая» текстура (если нравилось) */
+.site-bg::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cdefs%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0.6'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3C/defs%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
 }
 
-/* Ключевые кадры — плавные дрейфы */
-@keyframes auroraMove1{
-  0%   { transform: translate3d(0,    0,    0) rotate(0deg); }
-  50%  { transform: translate3d(4vmax, -3vmax, 0) rotate(120deg); }
-  100% { transform: translate3d(0,    0,    0) rotate(360deg); }
-}
-@keyframes auroraMove2{
-  0%   { transform: translate3d(0,    0,    0) rotate(0deg)   scale(1); }
-  50%  { transform: translate3d(-6vmax, 2vmax, 0) rotate(-140deg) scale(1.05); }
-  100% { transform: translate3d(0,    0,    0) rotate(-360deg)  scale(1); }
-}
-@keyframes auroraMove3{
-  0%   { transform: translate3d(0,    0,    0) rotate(0deg)   scale(1); }
-  50%  { transform: translate3d(3vmax, 5vmax, 0) rotate(160deg)  scale(0.98); }
-  100% { transform: translate3d(0,    0,    0) rotate(360deg)  scale(1); }
+/* Мобилки: пятна чуть меньше и мягче */
+@media (max-width: 768px){
+  .site-bg::before{
+    background:
+      radial-gradient(180px 130px at 14% 16%,  var(--blob-light), transparent 60%),
+      radial-gradient(240px 180px at 88% 28%,  var(--blob-dark),  transparent 65%),
+      radial-gradient(200px 150px at 22% 86%,  var(--blob-light), transparent 62%),
+      radial-gradient(220px 160px at 78% 84%,  var(--blob-dark),  transparent 66%);
+    filter: blur(14px);
+  }
 }
 
-/* Уважение к «уменьшить движения» */
-@media (prefers-reduced-motion: reduce){
-  body::before{ animation: none; }
-}
-
+/* Фоллбек-цвет (на всякий) */
+body{ background: var(--brand-mid); }
