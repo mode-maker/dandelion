@@ -23,7 +23,7 @@ export default function Hero() {
         </div>
 
         {/* Слоган */}
-        <p className="mt-10 text-[22px] leading-relaxed text-[#ECEDE8]">
+        <p className="mt-10 text-[27px] leading-relaxed text-[#ECEDE8]">
           Флорариум — природа в твоих руках
           <br />
           Создай свой маленький мир
