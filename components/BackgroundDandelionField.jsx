@@ -12,7 +12,7 @@ import { useEffect, useRef } from "react";
  * - уважает prefers-reduced-motion
  */
 export default function BackgroundDandelionField({
-  count = 100,            // кол-во шапочек
+  count = 200,            // кол-во шапочек
   minR = 7,             // радиус кроны min
   maxR = 30,             // радиус кроны max
   minSpeed = 50,          // px/сек (было ~скорее) — медленнее => 6..18
