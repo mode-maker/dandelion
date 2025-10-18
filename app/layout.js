@@ -19,6 +19,22 @@ export default function RootLayout({ children }) {
       <body className={`${mont.className} min-h-screen text-zinc-900 antialiased`}>
         {children}
       </body>
+        // app/layout.js
+import "./globals.css";
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="ru">
+      <body className="antialiased">
+        {/* Фон-слой */}
+        <div className="site-bg" />
+
+        {children}
+      </body>
+    </html>
+  );
+}
+
     </html>
   );
 }
