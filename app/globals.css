@@ -55,39 +55,32 @@ body{
 html {
   scroll-behavior: smooth;
 }
-/* ==== Едва заметный паттерн «одуванчиков» ==== */
-/* Лёгкий SVG-паттерн, мягко виден на зелёном фоне */
+/* ==== Паттерн «семян одуванчика» — средняя заметность ==== */
 .bg-seeds {
   position: fixed;
   inset: 0;
-  z-index: -1;           /* ниже всего контента (рядом с .site-bg) */
-  pointer-events: none;  /* клики не перехватывает */
-  opacity: .06;          /* интенсивность паттерна — можно ослабить до .04 */
-  mix-blend-mode: soft-light; /* мягкое смешивание с твоим фоном */
-
-  /* Тайловый SVG ( ~0.6KB ), белые полупрозрачные линии */
+  z-index: -1;
+  pointer-events: none;
+  opacity: .10;                 /* ↑ было .06 */
+  mix-blend-mode: soft-light;   /* мягкое наложение на зелёный фон */
   background-image: url("data:image/svg+xml;utf8,\
 <svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160' fill='none'>\
-  <g stroke='%23ffffff' stroke-opacity='.55' stroke-width='1'>\
-    <!-- seed 1 -->\
+  <g stroke='%23ffffff' stroke-opacity='.65' stroke-width='1.2'>\
     <path d='M36 90 q12 -22 34 -12'/>\
     <path d='M70 78 l10 -14'/>\
     <path d='M70 78 l-8 -6'/>\
-    <!-- seed 2 -->\
     <path d='M116 34 q-10 22 12 32'/>\
     <path d='M128 66 l14 8'/>\
     <path d='M128 66 l-12 6'/>\
-    <!-- seed 3 -->\
     <path d='M18 126 q26 -8 34 12'/>\
     <path d='M52 134 l10 12'/>\
     <path d='M52 134 l-8 12'/>\
   </g>\
 </svg>");
-  background-size: 320px 320px; /* масштаб клетки узора */
+  background-size: 260px 260px; /* ↑ плотнее сетка */
   background-repeat: repeat;
 }
 
-/* На очень узких экранах — чуть тише, чтобы не отвлекал */
 @media (max-width: 640px) {
-  .bg-seeds { opacity: .045; background-size: 280px 280px; }
+  .bg-seeds { opacity: .08; background-size: 240px 240px; }
 }
