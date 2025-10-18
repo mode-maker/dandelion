@@ -1,5 +1,12 @@
 // app/layout.js
 import "./globals.css";
+import dynamic from "next/dynamic";
+
+// ВАЖНО: динамический импорт клиентского бэкграунда без SSR
+const Dandelions = dynamic(
+  () => import("../components/BackgroundDandelionField"),
+  { ssr: false }
+);
 
 export const metadata = {
   title: "Dandelion",
@@ -10,25 +17,17 @@ export default function RootLayout({ children }) {
   return (
     <html lang="ru">
       <body className="antialiased">
-        {/* Фон-подложка из globals.css */}
+        {/* Фоновая подложка из globals.css */}
         <div className="site-bg" />
 
-        {/* Если используешь анимированные одуванчики, оставь их тут: */}
-        {/* <BackgroundDandelionField count={26} /> */}
+        {/* Анимированные одуванчики (если компонент существует по пути выше) */}
+        <Dandelions
+          count={22}       // количество "семян"
+          minVisible={10}  // минимум видимых на экране
+          scale={1}        // масштаб 1 = как сейчас (можно 0.8–1.2)
+          baseSpeed={16}   // базовая скорость (меньше — медленнее)
+        />
 
-        {/* анимированное поле одуванчиков на canvas */}
-       <BackgroundDandelionField
-  count={22}     // больше/меньше объектов
-  minR={15}
-  maxR={30}     // размер шапочек (радиус в px)
-  minSpeed={4}
-  maxSpeed={10}  // скорость в px/сек
-  baseOpacity={0.10}
-  stemsMin={18}
-  stemsMax={34}
-  minVisible={18}
-  viewportSpawnRatio={0.8}
-/>
         {children}
       </body>
     </html>
