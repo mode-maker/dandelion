@@ -1,63 +1,73 @@
+// app/api/gallery/route.js
 import { NextResponse } from "next/server";
 
-const CLOUD = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-const KEY   = process.env.CLOUDINARY_API_KEY;
-const SEC   = process.env.CLOUDINARY_API_SECRET;
+// Внимание: должны быть заданы переменные окружения на Vercel:
+// NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+// CLOUDINARY_API_KEY
+// CLOUDINARY_API_SECRET
 
-export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const cursor = searchParams.get("cursor") || "";
-  const tag = searchParams.get("tag") || ""; // фильтр по тегу (опционально)
+export const dynamic = "force-dynamic"; // не кэшировать, чтобы новые фото были сразу
+export const revalidate = 0;
 
-  const expressionParts = [
-    "folder=events",     // из папки
-    "tags=gallery"       // и помечены тегом
-  ];
-  if (tag) expressionParts.push(`tags=${tag}`);
-  const expression = expressionParts.join(" AND ");
+export async function GET() {
+  const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const key = process.env.CLOUDINARY_API_KEY;
+  const secret = process.env.CLOUDINARY_API_SECRET;
 
-  const body = new URLSearchParams({
-    expression,
-    max_results: "30",
-    sort_by: "created_at",
-    direction: "desc",
-  });
-  if (cursor) body.set("next_cursor", cursor);
+  if (!cloud || !key || !secret) {
+    return NextResponse.json(
+      { error: "Cloudinary env vars are missing" },
+      { status: 500 }
+    );
+  }
 
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUD}/resources/search`,
-    {
+  // Ищем все изображения из папки events (и, если есть, с тегом gallery)
+  // Если хочешь фильтровать только по тегу: expression: 'resource_type:image AND tags=gallery'
+  const body = {
+    expression: "resource_type:image AND folder=events", // + " AND tags=gallery" при желании
+    sort_by: [{ created_at: "desc" }],
+    max_results: 100,
+  };
+
+  const url = `https://api.cloudinary.com/v1_1/${cloud}/resources/search`;
+  const auth = "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
+
+  try {
+    const res = await fetch(url, {
       method: "POST",
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization:
-          "Basic " + Buffer.from(`${KEY}:${SEC}`).toString("base64"),
+        Authorization: auth,
+        "Content-Type": "application/json",
       },
-      body,
-      // небольшое кеширование (10 минут)
-      next: { revalidate: 600 },
-    }
-  );
+      body: JSON.stringify(body),
+      // на всякий случай отключим кэш CDN
+      cache: "no-store",
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    return NextResponse.json({ error: text }, { status: 500 });
+    if (!res.ok) {
+      const text = await res.text();
+      return NextResponse.json(
+        { error: "Cloudinary search failed", details: text },
+        { status: 500 }
+      );
+    }
+
+    const data = await res.json();
+    const items =
+      (data.resources || []).map((r) => ({
+        id: r.public_id,
+        url: r.secure_url,
+        w: r.width,
+        h: r.height,
+        created_at: r.created_at,
+        tags: r.tags || [],
+      })) || [];
+
+    return NextResponse.json({ items });
+  } catch (e) {
+    return NextResponse.json(
+      { error: "Unexpected error", details: String(e) },
+      { status: 500 }
+    );
   }
-  const data = await res.json();
-  // Оставим только то, что нужно фронту
-  const items = (data.resources || []).map((r) => ({
-    id: r.asset_id,
-    publicId: r.public_id,
-    w: r.width,
-    h: r.height,
-    // авто-трансформации webp + умный кроп
-    thumb: `https://res.cloudinary.com/${CLOUD}/image/upload/c_fill,q_auto,f_auto,w_600/${r.public_id}.jpg`,
-    full:  `https://res.cloudinary.com/${CLOUD}/image/upload/q_auto,f_auto/${r.public_id}.jpg`,
-    tags: r.tags,
-    createdAt: r.created_at,
-  }));
-  return NextResponse.json({
-    items,
-    nextCursor: data.next_cursor || null,
-  });
 }
