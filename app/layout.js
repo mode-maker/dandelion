@@ -1,6 +1,5 @@
 // app/layout.js
 import "./globals.css";
-import BackgroundDandelionField from "../components/BackgroundDandelionField";
 
 export const metadata = {
   title: "Dandelion",
@@ -11,8 +10,11 @@ export default function RootLayout({ children }) {
   return (
     <html lang="ru">
       <body className="antialiased">
-        {/* базовый фон (градиент из globals.css) */}
+        {/* Фон-подложка из globals.css */}
         <div className="site-bg" />
+
+        {/* Если используешь анимированные одуванчики, оставь их тут: */}
+        {/* <BackgroundDandelionField count={26} /> */}
 
         {/* анимированное поле одуванчиков на canvas */}
        <BackgroundDandelionField
