@@ -120,3 +120,5 @@ body { color: var(--text-on-dark); }
   color: var(--text-on-light) !important;
   text-shadow: 0 1px 0 rgba(255,255,255,0.6);
 }
+/* для тёмного фона немного «поднять» плитки */
+figure.shadow-strong { box-shadow: 0 10px 30px rgba(0,0,0,.35); }
