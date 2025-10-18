@@ -4,7 +4,7 @@
 
 * { box-sizing: border-box; }
 
-/* ===== Палитра (оставил твои переменные) ===== */
+/* ===== Палитра (можно подкрутить под бренд) ===== */
 :root{
   --brand-top: #5F6F65;  /* верх */
   --brand-mid: #6E7E74;  /* середина, чуть светлее */
@@ -14,8 +14,7 @@
 html, body { min-height: 100%; }
 
 /* ===== Фон-слой под всем контентом =====
-   Добавь <div class="site-bg" /> сразу внутри <body> в app/layout.js
-   (см. ниже — ничего больше менять не нужно) */
+   Нужен <div class="site-bg" /> в app/layout.js (см. шаг 2) */
 .site-bg {
   position: fixed;
   inset: 0;
@@ -37,21 +36,18 @@ html, body { min-height: 100%; }
   content: "";
   position: absolute;
   inset: 0;
-  opacity: .07;             /* при необходимости ослабь/усиль */
+  opacity: .07;             /* ослабить/усилить: 0.04–0.10 */
   pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cdefs%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0.6'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3C/defs%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 160px 160px;
 }
 
-/* Фоллбек-цвет (если по какой-то причине <div class="site-bg" /> не отрисуется) */
+/* Фоллбек-цвет (если по какой-то причине .site-bg не отрисуется) */
 body{
   background: var(--brand-mid);
 }
 
-/* скрыть горизонтальный скроллбар у ленты карточек */
+/* утилиты проекта */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
