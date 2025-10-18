@@ -1,27 +1,34 @@
-/* ========= Глобальная палитра (можно подстроить) ========= */
+/* ==== Палитра (можно подстроить) ==== */
 :root {
   --bg-0: #5f756b; /* базовый зелёный */
   --bg-1: #6d8277; /* светлее */
   --bg-2: #4e665c; /* темнее */
 }
 
-/* ========= Безопасный фон для всего сайта ========= */
-/* Только фон. Никаких позиций/слоёв/анимаций — ломаться нечему. */
-html, body {
-  min-height: 100%;
-  background-color: var(--bg-0);
-  /* мягкий вертикальный градиент + два больших радиальных пятна по краям */
+/* ==== Фоновый слой сайта (не влияет на размеры контента) ==== */
+.site-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;           /* уходит под весь контент */
+  pointer-events: none;  /* клики не перехватывает */
+
+  /* мягкая зелёная подложка с радиальными пятнами */
   background-image:
     radial-gradient(1000px 700px at -10% -10%, rgba(255,255,255,.10), transparent 55%),
-    radial-gradient(900px 650px at 110% 110%, rgba(0,0,0,.15), transparent 55%),
+    radial-gradient(900px 650px at 110% 110%, rgba(0,0,0,.14), transparent 55%),
     linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 55%, var(--bg-2) 120%);
   background-repeat: no-repeat;
-  background-attachment: scroll;  /* важно для iOS/Safari, чтобы ничего не “залипало” */
+  background-attachment: scroll; /* безопасно для iOS/Safari */
   background-size: cover, cover, cover;
 }
 
-/* чтобы Tailwind/браузерные стили не перекрывали фон случайной белой подложкой */
-body {
-  color: inherit;
-  background-blend-mode: normal;
+/* (необязательно) лёгкий шум для «тканевой» текстуры фона */
+.site-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: .08;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cdefs%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0.6'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3C/defs%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
 }
