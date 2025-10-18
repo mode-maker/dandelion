@@ -19,3 +19,24 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
+// app/layout.js
+import "./globals.css";
+
+export const metadata = {
+  title: "Dandelion",
+  description: "Цветочная мастерская — флорариумы и мастер-классы",
+};
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="ru">
+      <body className="antialiased">
+        {/* Фоны под контентом */}
+        <div className="site-bg" />
+        <div className="bg-seeds" />
+
+        {children}
+      </body>
+    </html>
+  );
+}
