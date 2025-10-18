@@ -88,3 +88,35 @@ body::after{
   body::before{ animation: none; }
 }
 
+/* ===== Цветовые переменные (можно использовать дальше по проекту) ===== */
+:root{
+  --text-on-dark: #ECEDE8;   /* светлый текст по тёмному фону */
+  --text-on-light: #2B2B2B;  /* тёмный текст по светлой карточке */
+}
+
+/* Если где-то body задаёт светлый цвет — ок, но в карточках ниже переопределим */
+body { color: var(--text-on-dark); }
+
+/* ===== Фикс: внутри светлых карточек делаем текст тёмным ===== */
+/* Кремовые карточки: #EFE9DD */
+[class*="bg-[#EFE9DD]"] {
+  color: var(--text-on-light) !important;
+}
+[class*="bg-[#EFE9DD]"] h1,
+[class*="bg-[#EFE9DD]"] h2,
+[class*="bg-[#EFE9DD]"] h3 {
+  color: var(--text-on-light) !important;
+  /* лёгкая светлая тенюшка — как было визуально в макете */
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+}
+
+/* Светло-серые карточки: #E7E8E0 (раздел «Готовые флорариумы», сертификат и т.п.) */
+[class*="bg-[#E7E8E0]"] {
+  color: var(--text-on-light) !important;
+}
+[class*="bg-[#E7E8E0]"] h1,
+[class*="bg-[#E7E8E0]"] h2,
+[class*="bg-[#E7E8E0]"] h3 {
+  color: var(--text-on-light) !important;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+}
