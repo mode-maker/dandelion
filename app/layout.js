@@ -1,6 +1,6 @@
 // app/layout.js
 import "./globals.css";
-import BackgroundSeeds from "../components/BackgroundSeeds";
+import BackgroundSeedsAnimated from "../components/BackgroundSeedsAnimated";
 
 export const metadata = {
   title: "Dandelion",
@@ -11,11 +11,11 @@ export default function RootLayout({ children }) {
   return (
     <html lang="ru">
       <body className="antialiased">
-        {/* базовый фон */}
+        {/* твой базовый фон */}
         <div className="site-bg" />
 
-        {/* минималистичные семена */}
-        <BackgroundSeeds />
+        {/* семена (можешь настроить параметры) */}
+        <BackgroundSeedsAnimated count={12} minSize={14} maxSize={22} opacity={0.10} />
 
         {children}
       </body>
