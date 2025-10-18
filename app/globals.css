@@ -55,3 +55,46 @@ body{
 html {
   scroll-behavior: smooth;
 }
+/* ==== Мягкие «блоб-пятна» по краям ==== */
+.bg-blobs {
+  position: fixed;
+  inset: -10vmax;        /* чуть выходим за экран, чтобы не видно было краёв */
+  z-index: -1;           /* остаётся позади контента (как и .site-bg) */
+  pointer-events: none;  /* не мешает кликам */
+}
+
+.bg-blobs::before,
+.bg-blobs::after {
+  content: "";
+  position: absolute;
+  width: 45vmax;
+  height: 45vmax;
+  filter: blur(60px);    /* мягкость пятна; при желании 40–80px */
+  opacity: .18;          /* интенсивность пятен; 0.10–0.22 обычно ок */
+  border-radius: 9999px; /* круги */
+}
+
+/* верхнее-левое пятно (более светлое, «подсветка») */
+.bg-blobs::before {
+  left: -6vmax;
+  top: -6vmax;
+  background: radial-gradient(circle at 30% 30%, #86a094, transparent 60%);
+}
+
+/* нижнее-правое пятно (чуть темнее, «тень/глубина») */
+.bg-blobs::after {
+  right: -7vmax;
+  bottom: -7vmax;
+  background: radial-gradient(circle at 60% 60%, #3f544b, transparent 60%);
+}
+
+/* На очень узких экранах уменьшим мощность, чтобы не «давило» */
+@media (max-width: 640px) {
+  .bg-blobs::before,
+  .bg-blobs::after {
+    width: 38vmax;
+    height: 38vmax;
+    filter: blur(48px);
+    opacity: .14;
+  }
+}
