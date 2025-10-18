@@ -1,60 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+/* Глобальный фон: мягкий вертикальный градиент фирменного зелёного */
 :root{
-  --bg-0: #5f756b;   /* базовый зелёный */
-  --bg-1: #6d8277;   /* светлее */
-  --bg-2: #4e665c;   /* темнее */
+  --brand-top: #5F6F65;  /* верх */
+  --brand-mid: #6E7E74;  /* середина чуть светлее */
+  --brand-bot: #5F6F65;  /* низ */
 }
 
-/* ГЛОБАЛЬНЫЙ ФОН: мягкие радиальные градиенты + вертикальный градиент */
-html, body {
-  min-height: 100%;
-  background-color: var(--bg-0);
-  background-image:
-    radial-gradient(1200px 800px at 10% -10%, rgba(255,255,255,.12), transparent 60%),
-    radial-gradient(1000px 700px at 110% 110%, rgba(0,0,0,.18), transparent 55%),
-    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 55%, var(--bg-2) 120%);
-  background-repeat: no-repeat;
-  background-size: cover, cover, cover;
-  background-attachment: local, local, scroll; /* чтоб не лагало на iOS */
-}
+html, body { height: 100%; }
 
-/* Слой с лёгким шумом (необязательно, но красиво) */
-@media (prefers-reduced-motion: no-preference) {
-  .noise {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    opacity: .055;                       /* интенсивность шума */
-    background-image: url("/noise/noise-512.png"); /* положи PNG в public/noise/ */
-    background-size: 256px 256px;        /* тайлинг */
-    mix-blend-mode: soft-light;
-    z-index: 0;
-  }
+body{
+  background: linear-gradient(180deg, var(--brand-top) 0%, var(--brand-mid) 50%, var(--brand-bot) 100%);
 }
-
-/* Мягкие «пятна»-blobs по краям (современно и ненавязчиво) */
-.bg-blobs {
-  position: fixed;
-  inset: -10vmax;
-  pointer-events: none;
-  z-index: 0;
+/* скрыть горизонтальный скроллбар у ленты карточек */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+html {
+  scroll-behavior: smooth;
 }
-.bg-blobs::before,
-.bg-blobs::after {
-  content: "";
-  position: absolute;
-  width: 45vmax; height: 45vmax;
-  filter: blur(60px);
-  opacity: .18;
-  border-radius: 9999px;
-}
-.bg-blobs::before {
-  left: -5vmax; top: -5vmax;
-  background: radial-gradient(circle at 30% 30%, #86a094, transparent 60%);
-}
-.bg-blobs::after {
-  right: -6vmax; bottom: -6vmax;
-  background: radial-gradient(circle at 60% 60%, #3f544b, transparent 60%);
-}
-
-/* Чтобы контент был выше фоновых слоёв */
-#__next, body > div { position: relative; z-index: 1; }
