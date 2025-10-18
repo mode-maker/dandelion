@@ -1,5 +1,6 @@
 // app/layout.js
 import "./globals.css";
+import BackgroundDandelions from "../components/BackgroundDandelions";
 
 export const metadata = {
   title: "Dandelion",
@@ -10,9 +11,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="ru">
       <body className="antialiased">
-        {/* Фоновые слои под всем контентом */}
+        {/* базовый градиентный фон */}
         <div className="site-bg" />
-        <div className="bg-seeds" />
+        {/* новый слой с одуванчиками */}
+        <BackgroundDandelions />
 
         {children}
       </body>
