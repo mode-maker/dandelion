@@ -14,7 +14,7 @@ import { useEffect, useRef } from "react";
 export default function BackgroundDandelionField({
   count = 137,            // кол-во шапочек
   minR = 7,             // радиус кроны min
-  maxR = 15,             // радиус кроны max
+  maxR = 30,             // радиус кроны max
   minSpeed = 12,          // px/сек (было ~скорее) — медленнее => 6..18
   maxSpeed = 24,
   baseOpacity = 0.10,    // общая заметность
