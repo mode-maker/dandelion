@@ -22,6 +22,7 @@ export default function Page() {
         <Events />
         <Certificate />
         <Reviews />
+        <Gallery />
         <Footer />
       </main>
     </>
