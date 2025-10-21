@@ -1,35 +1,42 @@
 // app/api/admin/upload/route.js
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { handleUpload } from '@vercel/blob';        // серверный helper
+import { handleUpload } from '@vercel/blob/client';  // ← ВАЖНО: client!
 import { sql } from '@vercel/postgres';
 
 export async function POST(request) {
   try {
-    // ВАЖНО: handleUpload ожидает JSON от клиента (его шлёт upload(...) из @vercel/blob/client)
     const body = await request.json();
 
     const result = await handleUpload({
       request,
       body,
+
+      // перед генерацией клиентского токена
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
         addRandomSuffix: true,
       }),
+
+      // после успешной загрузки — сохраняем запись в БД
       onUploadCompleted: async ({ blob }) => {
-        // создаём таблицу на всякий случай и пишем запись
+        console.log('Blob uploaded:', blob.url);
+
         await sql`
           CREATE TABLE IF NOT EXISTS photos (
             id SERIAL PRIMARY KEY,
             url TEXT NOT NULL,
             published BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMPTZ DEFAULT NOW()
-          );`;
+          );
+        `;
 
         await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
       },
-      // КРИТИЧНО: токен берём из env (работает только в nodejs runtime)
+
+      // пробрасываем серверный токен (env на Vercel)
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
@@ -38,12 +45,7 @@ export async function POST(request) {
     console.error('UPLOAD ERROR:', err);
     return NextResponse.json(
       { ok: false, error: String(err?.message || err) },
-      { status: 400 },
+      { status: 400 }
     );
   }
-}
-
-// (опционально, чтобы GET по этому роуту не давал 405 в логах)
-export async function GET() {
-  return NextResponse.json({ ok: true, info: 'Use POST with @vercel/blob/client upload()' });
 }
