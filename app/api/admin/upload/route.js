@@ -1,6 +1,8 @@
 // ЯВНО работаем в Node.js-функции (а не edge)
 export const runtime = 'nodejs';
+process.env.BLOB_READ_WRITE_TOKEN ||= process.env.BLOB_READ_WRITE_TOKEN;
 
+console.log("Blob token (server):", process.env.BLOB_READ_WRITE_TOKEN ? "found" : "missing");
 import { handleUpload } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
