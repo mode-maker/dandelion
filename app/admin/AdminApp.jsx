@@ -2,36 +2,33 @@
 'use client';
 
 import React, { useState } from 'react';
+import { handleUpload } from '@vercel/blob/client';
 
 export default function AdminApp() {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [log, setLog] = useState('');
-  const [items, setItems] = useState([]); // { url, filename }[]
+  const [items, setItems] = useState([]); // { url, pathname }[]
 
-  async function uploadFiles(selected) {
+  async function startUpload(selected) {
     if (!selected?.length) return;
     setLoading(true);
-    setLog('Загрузка...');
+    setLog('Готовим загрузку…');
 
     try {
-      for (const f of selected) {
-        const fd = new FormData();
-        fd.append('file', f);
-        fd.append('filename', f.name);
+      // ЗДЕСЬ важен endpoint: наш серверный роут
+      const result = await handleUpload(selected, {
+        endpoint: '/api/admin/upload',
+        onUploadProgress: ({ progress }) => {
+          setLog(`Загрузка: ${Math.round(progress * 100)}%`);
+        },
+        onUploadCompleted: ({ blob }) => {
+          // blob.url — публичная ссылка из Vercel Blob
+          setItems(prev => [{ url: blob.url, pathname: blob.pathname }, ...prev]);
+        },
+      });
 
-        const res = await fetch('/api/admin/upload', {
-          method: 'POST',
-          body: fd,
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data?.ok) {
-          throw new Error(data?.error || 'Upload failed');
-        }
-
-        setItems(prev => [{ url: data.url, filename: data.filename }, ...prev]);
-      }
+      if (!result) throw new Error('Upload failed');
       setLog('Готово ✅');
     } catch (e) {
       const msg = e?.message || String(e);
@@ -45,7 +42,9 @@ export default function AdminApp() {
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-xl font-semibold">Админ • Галерея</h1>
-      <p className="opacity-80">Загрузите одно или несколько фото — они сохранятся в Blob и появятся ниже.</p>
+      <p className="opacity-80">
+        Выберите фото и загрузите. Они попадут в Vercel Blob и автоматически запишутся в базу.
+      </p>
 
       <div className="flex items-center gap-3">
         <input
@@ -55,7 +54,7 @@ export default function AdminApp() {
           onChange={(e) => setFiles(Array.from(e.target.files || []))}
         />
         <button
-          onClick={() => uploadFiles(files)}
+          onClick={() => startUpload(files)}
           disabled={loading || !files.length}
           className="px-4 py-2 rounded-xl border border-white/20"
         >
@@ -68,8 +67,7 @@ export default function AdminApp() {
       <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
         {items.map((it, i) => (
           <div key={i} className="rounded-xl overflow-hidden border border-white/10">
-            <img src={it.url} alt={it.filename} className="w-full h-40 object-cover" />
-            <div className="p-2 text-xs">{it.filename}</div>
+            <img src={it.url} alt="" className="w-full h-40 object-cover" />
           </div>
         ))}
       </div>
