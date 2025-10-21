@@ -1,108 +1,77 @@
 // app/admin/AdminApp.jsx
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { upload } from '@vercel/blob/client'; // клиентский helper
+import React, { useState } from 'react';
 
 export default function AdminApp() {
   const [files, setFiles] = useState([]);
-  const [progress, setProgress] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [photos, setPhotos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [log, setLog] = useState('');
+  const [items, setItems] = useState([]); // { url, filename }[]
 
-  const loadPhotos = useCallback(async () => {
-    try {
-      const r = await fetch('/api/admin/photos', { cache: 'no-store' });
-      const data = await r.json();
-      setPhotos(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadPhotos();
-  }, [loadPhotos]);
-
-  const onChange = (e) => {
-    setFiles(Array.from(e.target.files || []));
-    setProgress(0);
-    setError('');
-  };
-
-  const onUpload = async () => {
-    if (!files.length || busy) return;
-    setBusy(true);
-    setError('');
+  async function uploadFiles(selected) {
+    if (!selected?.length) return;
+    setLoading(true);
+    setLog('Загрузка...');
 
     try {
-      // Загружаем ПО ОЧЕРЕДИ, показываем прогресс для текущего файла
-      for (let i = 0; i < files.length; i++) {
-        const f = files[i];
-        setProgress(0);
+      for (const f of selected) {
+        const fd = new FormData();
+        fd.append('file', f);
+        fd.append('filename', f.name);
 
-        await upload(f.name, f, {
-          access: 'public',
-          // сюда ходит upload() за токеном -> наш серверный роут вернёт токен и выполнит onUploadCompleted
-          handleUploadUrl: '/api/admin/upload',
-          onUploadProgress: (p) => {
-            // p.percentage: 0..100
-            setProgress(Math.round(p.percentage || 0));
-          },
+        const res = await fetch('/api/admin/upload', {
+          method: 'POST',
+          body: fd,
         });
-      }
 
-      await loadPhotos();
-      setFiles([]);
-      setProgress(0);
-      alert('Готово! Файлы загружены.');
+        const data = await res.json();
+        if (!res.ok || !data?.ok) {
+          throw new Error(data?.error || 'Upload failed');
+        }
+
+        setItems(prev => [{ url: data.url, filename: data.filename }, ...prev]);
+      }
+      setLog('Готово ✅');
     } catch (e) {
-      console.error(e);
-      setError(e?.message || String(e));
-      alert('Ошибка загрузки: ' + (e?.message || String(e)));
+      const msg = e?.message || String(e);
+      setLog('Ошибка: ' + msg);
+      alert('Ошибка загрузки: ' + msg);
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-2">Админ • Галерея</h1>
-      <p className="text-sm opacity-75 mb-4">
-        Загрузите одно или несколько фото — они сохранятся в Blob и появятся ниже.
-      </p>
+    <div className="p-6 space-y-4">
+      <h1 className="text-xl font-semibold">Админ • Галерея</h1>
+      <p className="opacity-80">Загрузите одно или несколько фото — они сохранятся в Blob и появятся ниже.</p>
 
-      <div className="rounded-xl bg-neutral-900/30 border border-neutral-800 p-4 mb-6">
-        <input type="file" multiple accept="image/*" onChange={onChange} />
-        <div className="mt-3 flex items-center gap-3">
-          <button
-            onClick={onUpload}
-            disabled={!files.length || busy}
-            className="px-3 py-1.5 rounded bg-white/10 hover:bg-white/15 disabled:opacity-50"
-          >
-            Загрузить
-          </button>
-          {busy ? <span>Загрузка… {progress}%</span> : null}
-          {error ? <span className="text-red-400">Ошибка: {error}</span> : null}
-        </div>
+      <div className="flex items-center gap-3">
+        <input
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp"
+          onChange={(e) => setFiles(Array.from(e.target.files || []))}
+        />
+        <button
+          onClick={() => uploadFiles(files)}
+          disabled={loading || !files.length}
+          className="px-4 py-2 rounded-xl border border-white/20"
+        >
+          {loading ? 'Загрузка…' : 'Загрузить'}
+        </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {photos.map((p) => (
-          <a
-            key={p.id}
-            href={p.url}
-            target="_blank"
-            rel="noreferrer"
-            className="block rounded-lg overflow-hidden border border-neutral-800 hover:border-neutral-700"
-          >
-            {/* отрисуем как превью <img>, blob-URL публичный */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.url} alt="" className="w-full h-40 object-cover" />
-          </a>
+      <div className="text-sm opacity-70">{log}</div>
+
+      <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
+        {items.map((it, i) => (
+          <div key={i} className="rounded-xl overflow-hidden border border-white/10">
+            <img src={it.url} alt={it.filename} className="w-full h-40 object-cover" />
+            <div className="p-2 text-xs">{it.filename}</div>
+          </div>
         ))}
-        {!photos.length && <div className="opacity-60">Пока нет фото.</div>}
       </div>
     </div>
   );
