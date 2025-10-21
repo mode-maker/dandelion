@@ -12,12 +12,11 @@ export async function POST() {
       ADD COLUMN IF NOT EXISTS thumb_width INT,
       ADD COLUMN IF NOT EXISTS thumb_height INT;
 
-    -- изначально сортировать по дате, но позволим ручной порядок
     UPDATE photos SET sort_order = EXTRACT(EPOCH FROM created_at)::INT
       WHERE sort_order IS NULL;
 
     CREATE INDEX IF NOT EXISTS photos_sort_idx ON photos(sort_order DESC);
-    CREATE INDEX IF NOT EXISTS photos_shooted_idx ON photos(shoted_at);
+    CREATE INDEX IF NOT EXISTS photos_shooted_idx ON photos(shooted_at);
   `;
   return Response.json({ ok: true });
 }
