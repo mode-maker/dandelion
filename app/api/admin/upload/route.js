@@ -1,9 +1,9 @@
 // app/api/admin/upload/route.js
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { handleUpload } from '@vercel/blob/client';  // ← ВАЖНО: client!
+// ⬇️ ВАЖНО: серверный вариант handleUpload
+import { handleUpload } from '@vercel/blob/server';
 import { sql } from '@vercel/postgres';
 
 export async function POST(request) {
@@ -13,17 +13,14 @@ export async function POST(request) {
     const result = await handleUpload({
       request,
       body,
-
-      // перед генерацией клиентского токена
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
         addRandomSuffix: true,
       }),
-
-      // после успешной загрузки — сохраняем запись в БД
       onUploadCompleted: async ({ blob }) => {
         console.log('Blob uploaded:', blob.url);
 
+        // создаём таблицу при первом запуске (идемпотентно)
         await sql`
           CREATE TABLE IF NOT EXISTS photos (
             id SERIAL PRIMARY KEY,
@@ -33,10 +30,13 @@ export async function POST(request) {
           );
         `;
 
-        await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
+        await sql`
+          INSERT INTO photos (url, published) 
+          VALUES (${blob.url}, TRUE);
+        `;
       },
 
-      // пробрасываем серверный токен (env на Vercel)
+      // ⬇️ Передаём токен из переменных окружения
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
