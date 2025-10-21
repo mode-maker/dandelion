@@ -9,14 +9,11 @@ export function middleware(req) {
 
   if (!needsAuth) return NextResponse.next();
 
-  const auth = req.headers.get('authorization');
-  const good =
-    'Basic ' +
-    Buffer.from(`${process.env.ADMIN_USER}:${process.env.ADMIN_PASS}`).toString(
-      'base64'
-    );
+  const auth = req.headers.get('authorization') || '';
+  const expected =
+    'Basic ' + btoa(`${process.env.ADMIN_USER}:${process.env.ADMIN_PASS}`);
 
-  if (auth === good) return NextResponse.next();
+  if (auth === expected) return NextResponse.next();
 
   return new NextResponse('Auth required', {
     status: 401,
@@ -24,5 +21,6 @@ export function middleware(req) {
   });
 }
 
-export const config = { matcher: ['/:path*']
-};
+// ВРЕМЕННО включи на все пути, чтобы проверить, что работает.
+// Потом вернём на ['/admin/:path*', '/api/admin/:path*']
+export const config = { matcher: ['/:path*'] };
