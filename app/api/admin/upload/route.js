@@ -2,54 +2,56 @@
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
-import { handleUpload } from '@vercel/blob/client';
+import { put } from '@vercel/blob';
 import { sql } from '@vercel/postgres';
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    // проверим токен заранее — так сообщение будет понятным
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) {
       return NextResponse.json(
-        { ok: false, error: 'Missing env: BLOB_READ_WRITE_TOKEN' },
+        { ok: false, error: 'Missing env BLOB_READ_WRITE_TOKEN' },
         { status: 500 }
       );
     }
 
-    const body = await request.json();
+    const form = await req.formData();
+    const file = form.get('file');
+    const wantedName = form.get('filename');
 
-    const result = await handleUpload({
-      request,
-      body,
-      onBeforeGenerateToken: async () => ({
-        allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
-        addRandomSuffix: true,
-      }),
-      onUploadCompleted: async ({ blob }) => {
-        // создаем таблицу при первом аплоаде
-        await sql`
-          CREATE TABLE IF NOT EXISTS photos (
-            id SERIAL PRIMARY KEY,
-            url TEXT NOT NULL,
-            published BOOLEAN DEFAULT TRUE,
-            created_at TIMESTAMPTZ DEFAULT NOW()
-          );
-        `;
-        await sql`
-          INSERT INTO photos (url, published)
-          VALUES (${blob.url}, TRUE)
-        `;
-      },
-      // токен берем из переменных окружения
+    if (!file || typeof file === 'string') {
+      return NextResponse.json(
+        { ok: false, error: 'No file provided' },
+        { status: 400 }
+      );
+    }
+
+    const filename = wantedName || file.name || `upload_${Date.now()}`;
+
+    const { url } = await put(`gallery/${filename}`, file, {
+      access: 'public',
       token,
+      addRandomSuffix: true,
+      contentType: file.type || 'application/octet-stream',
     });
 
-    return NextResponse.json({ ok: true, uploaded: result });
+    // сохраняем ссылку в БД (при первом аплоаде создастся таблица)
+    await sql`
+      CREATE TABLE IF NOT EXISTS photos (
+        id SERIAL PRIMARY KEY,
+        url TEXT NOT NULL,
+        published BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+    await sql`INSERT INTO photos (url, published) VALUES (${url}, TRUE)`;
+
+    return NextResponse.json({ ok: true, url, filename });
   } catch (err) {
     console.error('UPLOAD ERROR:', err);
     return NextResponse.json(
       { ok: false, error: String(err?.message || err) },
-      { status: 400 }
+      { status: 500 }
     );
   }
 }
