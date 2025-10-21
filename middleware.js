@@ -24,6 +24,5 @@ export function middleware(req) {
   });
 }
 
-export const config = { matcher: ['/:path*'] };
-
+export const config = { matcher: ['/:path*']
 };
