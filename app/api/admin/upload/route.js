@@ -2,8 +2,7 @@
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
-// ⬇️ ВАЖНО: серверный вариант handleUpload
-import { handleUpload } from '@vercel/blob/server';
+import { handleUpload } from '@vercel/blob/client';
 import { sql } from '@vercel/postgres';
 
 export async function POST(request) {
@@ -18,9 +17,7 @@ export async function POST(request) {
         addRandomSuffix: true,
       }),
       onUploadCompleted: async ({ blob }) => {
-        console.log('Blob uploaded:', blob.url);
-
-        // создаём таблицу при первом запуске (идемпотентно)
+        // создаем таблицу при первом аплоаде
         await sql`
           CREATE TABLE IF NOT EXISTS photos (
             id SERIAL PRIMARY KEY,
@@ -29,14 +26,9 @@ export async function POST(request) {
             created_at TIMESTAMPTZ DEFAULT NOW()
           );
         `;
-
-        await sql`
-          INSERT INTO photos (url, published) 
-          VALUES (${blob.url}, TRUE);
-        `;
+        await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
       },
-
-      // ⬇️ Передаём токен из переменных окружения
+      // важное место: токен берем из переменных окружения
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
