@@ -1,40 +1,38 @@
 // app/api/admin/upload/route.js
-export const runtime = 'nodejs';           // можно 'edge', если хочешь
-export const dynamic = 'force-dynamic';    // чтобы не было кэша
+export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
-import { handleUpload } from '@vercel/blob';     // серверный импорт
+import { handleUpload } from '@vercel/blob';        // серверный helper
 import { sql } from '@vercel/postgres';
 
 export async function POST(request) {
   try {
-    // ❗ ВАЖНО: НЕ вычитываем body (никакого request.json() / formData())
-    // handleUpload сам прочитает multipart-стрим запроса
-    const result = await handleUpload(request, {
-      access: 'public',
-      token: process.env.BLOB_READ_WRITE_TOKEN,      // токен только на сервере
+    // ВАЖНО: handleUpload ожидает JSON от клиента (его шлёт upload(...) из @vercel/blob/client)
+    const body = await request.json();
 
-      // Разрешаем только изображения + рандомный суффикс
+    const result = await handleUpload({
+      request,
+      body,
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
         addRandomSuffix: true,
       }),
-
-      // После успешной загрузки — сохраняем запись в БД
       onUploadCompleted: async ({ blob }) => {
+        // создаём таблицу на всякий случай и пишем запись
         await sql`
           CREATE TABLE IF NOT EXISTS photos (
             id SERIAL PRIMARY KEY,
             url TEXT NOT NULL,
             published BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMPTZ DEFAULT NOW()
-          );
-        `;
+          );`;
+
         await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
       },
+      // КРИТИЧНО: токен берём из env (работает только в nodejs runtime)
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
-    // result — это JSON, который можно отдать как есть
     return NextResponse.json({ ok: true, uploaded: result });
   } catch (err) {
     console.error('UPLOAD ERROR:', err);
@@ -45,7 +43,7 @@ export async function POST(request) {
   }
 }
 
-// По желанию можно запретить всё кроме POST
+// (опционально, чтобы GET по этому роуту не давал 405 в логах)
 export async function GET() {
-  return NextResponse.json({ error: 'Method Not Allowed' }, { status: 405 });
+  return NextResponse.json({ ok: true, info: 'Use POST with @vercel/blob/client upload()' });
 }
