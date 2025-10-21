@@ -11,26 +11,27 @@ export async function POST(request) {
     const result = await handleUpload({
       body,
       request,
-      // 👉 ЯВНО передаём токен из env
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-
+      token: process.env.BLOB_READ_WRITE_TOKEN,   // <- явный токен
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
         addRandomSuffix: true,
       }),
-
       onUploadCompleted: async ({ blob }) => {
-        await sql/* sql */`
+        await sql`
           INSERT INTO photos (url, published)
           VALUES (${blob.url}, TRUE)
         `;
       },
     });
 
-    return NextResponse.json({ ok: true, uploaded: result });
+    // ВАЖНО: вернуть именно result, без обёртки!
+    return NextResponse.json(result);
+
   } catch (err) {
-    // лог в функции — увидишь его в Function Logs
     console.error('UPLOAD ERROR:', err);
-    return NextResponse.json({ ok: false, error: String(err?.message || err) }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: String(err?.message || err) },
+      { status: 400 }
+    );
   }
 }
