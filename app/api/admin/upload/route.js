@@ -35,7 +35,6 @@ export async function POST(req) {
       contentType: file.type || 'application/octet-stream',
     });
 
-    // сохраняем ссылку в БД (при первом аплоаде создастся таблица)
     await sql`
       CREATE TABLE IF NOT EXISTS photos (
         id SERIAL PRIMARY KEY,
