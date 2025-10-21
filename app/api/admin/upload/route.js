@@ -7,6 +7,15 @@ import { sql } from '@vercel/postgres';
 
 export async function POST(request) {
   try {
+    // проверим токен заранее — так сообщение будет понятным
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!token) {
+      return NextResponse.json(
+        { ok: false, error: 'Missing env: BLOB_READ_WRITE_TOKEN' },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
 
     const result = await handleUpload({
@@ -26,10 +35,13 @@ export async function POST(request) {
             created_at TIMESTAMPTZ DEFAULT NOW()
           );
         `;
-        await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
+        await sql`
+          INSERT INTO photos (url, published)
+          VALUES (${blob.url}, TRUE)
+        `;
       },
-      // важное место: токен берем из переменных окружения
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      // токен берем из переменных окружения
+      token,
     });
 
     return NextResponse.json({ ok: true, uploaded: result });
@@ -40,3 +52,4 @@ export async function POST(request) {
       { status: 400 }
     );
   }
+}
