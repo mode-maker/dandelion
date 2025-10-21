@@ -2,7 +2,7 @@ import { sql } from '@vercel/postgres';
 
 export async function POST() {
   try {
-    // 1) базовая таблица (на случай, если init не вызывали)
+    // 1) базовая таблица
     await sql/* sql */`
       CREATE TABLE IF NOT EXISTS photos (
         id SERIAL PRIMARY KEY,
@@ -13,10 +13,10 @@ export async function POST() {
         tags TEXT[],
         published BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMPTZ DEFAULT NOW()
-      );
+      )
     `;
 
-    // 2) расширение колонками
+    // 2) расширение колонками (одной командой ALTER можно — это ОДНА команда)
     await sql/* sql */`
       ALTER TABLE photos
         ADD COLUMN IF NOT EXISTS sort_order INT,
@@ -26,25 +26,26 @@ export async function POST() {
         ADD COLUMN IF NOT EXISTS shooted_at DATE,
         ADD COLUMN IF NOT EXISTS thumb_url TEXT,
         ADD COLUMN IF NOT EXISTS thumb_width INT,
-        ADD COLUMN IF NOT EXISTS thumb_height INT;
+        ADD COLUMN IF NOT EXISTS thumb_height INT
     `;
 
-    // 3) sort_order, если пусто
+    // 3) заполнение sort_order
     await sql/* sql */`
       UPDATE photos
       SET sort_order = EXTRACT(EPOCH FROM created_at)::INT
-      WHERE sort_order IS NULL;
+      WHERE sort_order IS NULL
     `;
 
-    // 4) индексы
+    // 4) индексы — КАЖДЫЙ ОТДЕЛЬНО
     await sql/* sql */`
-      CREATE INDEX IF NOT EXISTS photos_sort_idx ON photos(sort_order DESC);
-      CREATE INDEX IF NOT EXISTS photos_shooted_idx ON photos(shooted_at);
+      CREATE INDEX IF NOT EXISTS photos_sort_idx ON photos(sort_order DESC)
+    `;
+    await sql/* sql */`
+      CREATE INDEX IF NOT EXISTS photos_shooted_idx ON photos(shooted_at)
     `;
 
     return Response.json({ ok: true });
   } catch (e) {
-    // вернём текст ошибки, чтобы сразу понять, где падает
     return Response.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
   }
 }
