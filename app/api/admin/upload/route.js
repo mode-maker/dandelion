@@ -40,10 +40,3 @@ export async function POST(request) {
       { status: 400 }
     );
   }
-}
-if (!process.env.BLOB_READ_WRITE_TOKEN) {
-  return NextResponse.json(
-    { ok: false, error: 'BLOB_READ_WRITE_TOKEN env var is missing' },
-    { status: 500 }
-  );
-}
