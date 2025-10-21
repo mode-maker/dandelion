@@ -1,7 +1,7 @@
 import { sql } from '@vercel/postgres';
 
 export async function POST() {
-  // 1) гарантируем базовую таблицу
+  // 1) базовая таблица (на случай, если init не вызывали)
   await sql/* sql */`
     CREATE TABLE IF NOT EXISTS photos (
       id SERIAL PRIMARY KEY,
@@ -15,7 +15,7 @@ export async function POST() {
     );
   `;
 
-  // 2) добавляем нужные колонки
+  // 2) расширение колонками
   await sql/* sql */`
     ALTER TABLE photos
       ADD COLUMN IF NOT EXISTS sort_order INT,
@@ -28,7 +28,7 @@ export async function POST() {
       ADD COLUMN IF NOT EXISTS thumb_height INT;
   `;
 
-  // 3) заполняем sort_order, если пусто
+  // 3) sort_order, если пусто
   await sql/* sql */`
     UPDATE photos
     SET sort_order = EXTRACT(EPOCH FROM created_at)::INT
