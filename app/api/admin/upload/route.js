@@ -1,41 +1,42 @@
 // app/api/admin/upload/route.js
 export const runtime = 'nodejs';
 
-import { handleUpload } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
+import { handleUpload } from '@vercel/blob';           // <— серверный импорт
 import { sql } from '@vercel/postgres';
 
 export async function POST(request) {
   try {
     const body = await request.json();
 
-    // Принудительно передаём токен
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) throw new Error('BLOB_READ_WRITE_TOKEN is missing');
-
     const result = await handleUpload({
-      body,
       request,
-      token, // <— ключевая строка!
+      body,
+      // Разрешим только изображения
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
         addRandomSuffix: true,
       }),
+      // После успешной заливки — пишем в БД
       onUploadCompleted: async ({ blob }) => {
+        console.log('Blob uploaded:', blob.url);
         await sql`
-          INSERT INTO photos (url, published)
-          VALUES (${blob.url}, TRUE)
+          CREATE TABLE IF NOT EXISTS photos (
+            id SERIAL PRIMARY KEY,
+            url TEXT NOT NULL,
+            published BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+          );
         `;
+        await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
       },
+      // ✅ критично: передаём токен на сервере
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
-    // Возвращаем результат напрямую
-    return NextResponse.json(result);
+    return NextResponse.json({ ok: true, uploaded: result });
   } catch (err) {
     console.error('UPLOAD ERROR:', err);
-    return NextResponse.json(
-      { ok: false, error: String(err?.message || err) },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, error: String(err?.message || err) }, { status: 400 });
   }
 }
