@@ -3,46 +3,55 @@ import { NextResponse } from 'next/server';
 import { handleUpload } from '@vercel/blob/client';
 import { sql } from '@vercel/postgres';
 
-// 1) Гарантируем Node.js среду (а не Edge)
+// Гарантируем Node.js рантайм и динамический рендер,
+// иначе env может не подтянуться.
 export const runtime = 'nodejs';
-
-// 2) Не даём роуту стать статическим/кешируемым
 export const dynamic = 'force-dynamic';
-
-// (не обязательно, но удобно для явного поведения)
-// export const revalidate = 0;
+// export const revalidate = 0; // необязательно
 
 export async function POST(request) {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
+
+  // Диагностика — можно оставить на время отладки
   if (!token) {
     return NextResponse.json(
-      { ok: false, error: 'Missing BLOB_READ_WRITE_TOKEN' },
+      { ok: false, error: 'Missing BLOB_READ_WRITE_TOKEN on server' },
       { status: 500 }
     );
   }
 
-  // handleUpload сам прочитает body и отдаст корректный ответ клиенту
-  return handleUpload({
-    request,
-    onBeforeGenerateToken: async () => ({
-      allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
-      addRandomSuffix: true,
-    }),
-    onUploadCompleted: async ({ blob }) => {
-      try {
-        await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
-      } catch (e) {
-        console.error('DB insert failed:', e);
-      }
-    },
-    token, // — вот сюда и передаём RW-токен из env
-  });
+  try {
+    return await handleUpload({
+      request,
+      onBeforeGenerateToken: async () => ({
+        allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
+        addRandomSuffix: true,
+      }),
+      onUploadCompleted: async ({ blob }) => {
+        // Записываем URL в БД (не падаем, если БД недоступна)
+        try {
+          await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
+        } catch (dbErr) {
+          console.error('DB insert failed:', dbErr);
+        }
+      },
+      token, // <-- СЮДА ПЕРЕДАЁМ RW-токен
+    });
+  } catch (e) {
+    console.error('upload route error:', e);
+    // Пробрасываем понятный текст на клиент
+    return NextResponse.json(
+      { ok: false, error: e?.message || 'Upload failed' },
+      { status: 500 }
+    );
+  }
 }
 
-// Чтобы в браузере GET не пугал «This page isn’t working»
+// Чтобы GET в браузере не пугал "405"
 export async function GET() {
+  const hasBlobToken = !!process.env.BLOB_READ_WRITE_TOKEN;
   return NextResponse.json(
-    { ok: false, error: 'Use POST to upload files' },
+    { ok: false, hint: 'Use POST to upload files', hasBlobToken },
     { status: 405 }
   );
 }
