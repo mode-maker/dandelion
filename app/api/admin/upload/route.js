@@ -1,3 +1,4 @@
+// app/api/admin/upload/route.js
 import { NextResponse } from 'next/server';
 import { handleUpload } from '@vercel/blob/client';
 import { sql } from '@vercel/postgres';
@@ -14,25 +15,26 @@ export async function POST(request) {
     );
   }
 
-  // 👇 ЭТО ВАЖНО: прочитать тело и передать в handleUpload
+  // ВАЖНО: прочитать тело и передать в handleUpload
   const body = await request.json();
 
   try {
     return await handleUpload({
       request,
-      body, // ← без этого и появляется "No token found"
+      body,
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
         addRandomSuffix: true,
       }),
       onUploadCompleted: async ({ blob }) => {
+        // Не роняем загрузку, если БД недоступна
         try {
           await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
         } catch (e) {
           console.error('DB insert failed:', e);
         }
       },
-      token,
+      token, // сюда передаём RW-токен из ENV
     });
   } catch (e) {
     console.error('upload route error:', e);
