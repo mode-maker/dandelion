@@ -16,46 +16,50 @@ export async function POST(request) {
       );
     }
 
-    const formData = await request.formData();
-    const files = formData.getAll('files');
-    if (!files || files.length === 0) {
-      return NextResponse.json({ error: 'Нет файлов' }, { status: 400 });
+    const form = await request.formData();
+    const files = form.getAll('files').filter(Boolean);
+    if (!files.length) {
+      return NextResponse.json({ error: 'Нет файлов для загрузки' }, { status: 400 });
     }
+
+    // гарантируем, что таблица есть
+    await sql/* sql */`
+      CREATE TABLE IF NOT EXISTS photos (
+        id SERIAL PRIMARY KEY,
+        url TEXT NOT NULL,
+        width INT,
+        height INT,
+        title TEXT,
+        tags TEXT[],
+        published BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
 
     const uploaded = [];
 
     for (const file of files) {
-      // file: Blob from FormData
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      const objectKey = `gallery/${Date.now()}-${file.name}`;
-      const blob = await put(objectKey, buffer, {
+      // file — это Blob из FormData
+      const fileName = (file.name || `photo-${Date.now()}`).replace(/\s+/g, '_');
+      const blob = await put(fileName, file, {
         access: 'public',
+        token,
         contentType: file.type || 'application/octet-stream',
-        token, // RW-токен берем из ENV
       });
 
-      uploaded.push({
-        url: blob.url,
-        pathname: blob.pathname,
-        size: buffer.length,
-        contentType: file.type || null,
-      });
-
-      // сохранить в БД (не валим загрузку при ошибке БД)
-      try {
-        await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
-      } catch (e) {
-        console.error('DB insert failed:', e);
-      }
+      const { rows } = await sql/* sql */`
+        INSERT INTO photos (url, published)
+        VALUES (${blob.url}, TRUE)
+        RETURNING id, url, published, created_at
+      `;
+      uploaded.push(rows[0]);
     }
 
-    return NextResponse.json({ ok: true, uploaded }, { status: 200 });
+    return NextResponse.json({ ok: true, uploaded });
   } catch (e) {
     console.error('upload route error:', e);
     return NextResponse.json(
-      { error: e.message || 'Upload failed' },
+      { error: e?.message || 'Upload failed' },
       { status: 500 }
     );
   }
