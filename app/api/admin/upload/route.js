@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { sql } from '@vercel/postgres';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Нет файлов для загрузки' }, { status: 400 });
     }
 
-    // гарантируем, что таблица есть
     await sql/* sql */`
       CREATE TABLE IF NOT EXISTS photos (
         id SERIAL PRIMARY KEY,
@@ -39,7 +39,6 @@ export async function POST(request) {
     const uploaded = [];
 
     for (const file of files) {
-      // file — это Blob из FormData
       const fileName = (file.name || `photo-${Date.now()}`).replace(/\s+/g, '_');
       const blob = await put(fileName, file, {
         access: 'public',
@@ -55,19 +54,18 @@ export async function POST(request) {
       uploaded.push(rows[0]);
     }
 
+    // ⚡️ Сброс кеша публичных страниц/данных
+    revalidatePath('/');          // главная (если галерея там)
+    revalidatePath('/gallery');   // на случай отдельной страницы
+    revalidateTag('gallery');     // если используем теги в fetch()
+
     return NextResponse.json({ ok: true, uploaded });
   } catch (e) {
     console.error('upload route error:', e);
-    return NextResponse.json(
-      { error: e?.message || 'Upload failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: e?.message || 'Upload failed' }, { status: 500 });
   }
 }
 
 export async function GET() {
-  return NextResponse.json(
-    { hint: 'Use POST to upload files' },
-    { status: 405 }
-  );
+  return NextResponse.json({ hint: 'Use POST to upload files' }, { status: 405 });
 }
