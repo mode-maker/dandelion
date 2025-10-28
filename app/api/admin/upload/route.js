@@ -1,3 +1,4 @@
+// app/api/admin/upload/route.js
 import { NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { sql } from '@vercel/postgres';
@@ -7,25 +8,42 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Missing BLOB_READ_WRITE_TOKEN on server' },
+        { status: 500 }
+      );
+    }
+
     const formData = await request.formData();
     const files = formData.getAll('files');
-    if (!files || !files.length) {
+    if (!files || files.length === 0) {
       return NextResponse.json({ error: 'Нет файлов' }, { status: 400 });
     }
 
-    const results = [];
+    const uploaded = [];
+
     for (const file of files) {
+      // file: Blob from FormData
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      const blob = await put(`gallery/${file.name}`, buffer, {
+
+      const objectKey = `gallery/${Date.now()}-${file.name}`;
+      const blob = await put(objectKey, buffer, {
         access: 'public',
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-        contentType: file.type,
+        contentType: file.type || 'application/octet-stream',
+        token, // RW-токен берем из ENV
       });
 
-      results.push(blob.url);
+      uploaded.push({
+        url: blob.url,
+        pathname: blob.pathname,
+        size: buffer.length,
+        contentType: file.type || null,
+      });
 
-      // Добавляем в БД (если хочешь)
+      // сохранить в БД (не валим загрузку при ошибке БД)
       try {
         await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
       } catch (e) {
@@ -33,13 +51,19 @@ export async function POST(request) {
       }
     }
 
-    return NextResponse.json({ ok: true, uploaded: results });
+    return NextResponse.json({ ok: true, uploaded }, { status: 200 });
   } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: e.message || 'Upload failed' }, { status: 500 });
+    console.error('upload route error:', e);
+    return NextResponse.json(
+      { error: e.message || 'Upload failed' },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ hint: 'Use POST to upload files' }, { status: 405 });
+  return NextResponse.json(
+    { hint: 'Use POST to upload files' },
+    { status: 405 }
+  );
 }
