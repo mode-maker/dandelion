@@ -1,49 +1,54 @@
-// app/components/Gallery.jsx
-import { list } from '@vercel/blob';
+// components/Gallery.jsx
+'use client';
 
-export const dynamic = 'force-dynamic';
+import { useEffect, useState } from 'react';
 
-export default async function Gallery() {
-  const { blobs } = await list({ prefix: 'gallery/', limit: 200 });
-  const items = [...blobs].sort((a, b) => (a.uploadedAt < b.uploadedAt ? 1 : -1));
+export default function Gallery() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/photos?published=true', { cache: 'no-store' });
+      const data = await res.json();
+      setItems(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error('GALLERY LOAD ERROR:', e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
 
   return (
-    <section className="py-12 md:py-16">
-      <div className="mx-auto w-full max-w-6xl px-4">
-        <h2 className="text-center text-2xl md:text-3xl font-semibold tracking-tight">
-          Галерея
-        </h2>
+    <section className="w-full py-10 md:py-14">
+      <div className="mx-auto max-w-6xl px-4">
+        <h2 className="text-center text-2xl md:text-3xl font-semibold text-[#E7E8E0]">Галерея</h2>
 
-        <div className="mt-6 md:mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map((b) => (
+        {loading && (
+          <p className="mt-6 text-center text-[#E7E8E0]/70">Загружаем фотографии…</p>
+        )}
+
+        {!loading && items.length === 0 && (
+          <p className="mt-6 text-center text-[#E7E8E0]/70">Пока нет фотографий.</p>
+        )}
+
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 place-items-center">
+          {items.map((p) => (
             <figure
-              key={b.url}
-              className="
-                overflow-hidden rounded-2xl
-                border border-neutral-800
-                bg-neutral-900/30
-                shadow-lg shadow-black/20
-                transition-all duration-200
-                transform-gpu will-change-transform
-                hover:-translate-y-0.5 hover:shadow-xl
-              "
+              key={p.id}
+              className="w-full max-w-[520px] rounded-2xl overflow-hidden bg-black/10 shadow-lg shadow-black/20 ring-1 ring-white/5 transition-shadow hover:shadow-xl"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={b.url}
-                alt=""
+                src={p.url}
+                alt={`gallery-${p.id}`}
+                className="w-full h-64 object-cover"
                 loading="lazy"
-                draggable={false}
-                className="w-full h-56 md:h-64 object-cover select-none"
               />
             </figure>
           ))}
-
-          {items.length === 0 && (
-            <p className="col-span-full text-center text-neutral-400">
-              Пока нет фотографий.
-            </p>
-          )}
         </div>
       </div>
     </section>
