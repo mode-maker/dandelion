@@ -1,69 +1,45 @@
-// app/api/admin/upload/route.js
 import { NextResponse } from 'next/server';
-import { handleUpload } from '@vercel/blob/client';
+import { put } from '@vercel/blob';
 import { sql } from '@vercel/postgres';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-
-  // Прочитаем тело один раз (и используем его ниже)
-  let body = {};
   try {
-    body = await request.json();
-  } catch {
-    body = {};
-  }
+    const formData = await request.formData();
+    const files = formData.getAll('files');
+    if (!files || !files.length) {
+      return NextResponse.json({ error: 'Нет файлов' }, { status: 400 });
+    }
 
-  // 🔎 ПРОБНИК: если пришёл probe — просто подтвердим, что POST доходит до сервера
-  if (body && body.__probe === true) {
-    return NextResponse.json({
-      ok: true,
-      probe: 'POST reached /api/admin/upload',
-      hasBlobToken: !!token,
-    });
-  }
+    const results = [];
+    for (const file of files) {
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const blob = await put(`gallery/${file.name}`, buffer, {
+        access: 'public',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        contentType: file.type,
+      });
 
-  if (!token) {
-    return NextResponse.json(
-      { ok: false, error: 'Missing BLOB_READ_WRITE_TOKEN on server' },
-      { status: 500 }
-    );
-  }
+      results.push(blob.url);
 
-  try {
-    // ⚠️ ВАЖНО: передаём request И body в handleUpload
-    return await handleUpload({
-      request,
-      body,
-      onBeforeGenerateToken: async () => ({
-        allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp'],
-        addRandomSuffix: true,
-      }),
-      onUploadCompleted: async ({ blob }) => {
-        try {
-          await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
-        } catch (e) {
-          console.error('DB insert failed:', e);
-        }
-      },
-      token,
-    });
+      // Добавляем в БД (если хочешь)
+      try {
+        await sql`INSERT INTO photos (url, published) VALUES (${blob.url}, TRUE)`;
+      } catch (e) {
+        console.error('DB insert failed:', e);
+      }
+    }
+
+    return NextResponse.json({ ok: true, uploaded: results });
   } catch (e) {
-    console.error('upload route error:', e);
-    return NextResponse.json(
-      { ok: false, error: e?.message || 'Upload failed' },
-      { status: 500 }
-    );
+    console.error(e);
+    return NextResponse.json({ error: e.message || 'Upload failed' }, { status: 500 });
   }
 }
 
 export async function GET() {
-  const hasBlobToken = !!process.env.BLOB_READ_WRITE_TOKEN;
-  return NextResponse.json(
-    { ok: false, hint: 'Use POST to upload files', hasBlobToken },
-    { status: 405 }
-  );
+  return NextResponse.json({ hint: 'Use POST to upload files' }, { status: 405 });
 }
