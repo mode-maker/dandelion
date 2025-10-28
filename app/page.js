@@ -7,6 +7,7 @@ import ReadyTerrariums from "../components/ReadyTerrariums";
 import Events from "../components/Events";
 import Certificate from "../components/Certificate";
 import Footer from "../components/Footer";
+import Gallery from "../components/Gallery"; // ← добавили импорт
 
 export default function Page() {
   return (
@@ -18,6 +19,7 @@ export default function Page() {
         <WorkshopsGrid />
         <ReadyTerrariums />
         <Events />
+        <Gallery />            {/* ← добавили блок галереи */}
         <Certificate />
         <Reviews />
         <Footer />
