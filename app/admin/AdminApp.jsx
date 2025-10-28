@@ -15,7 +15,7 @@ export default function AdminApp() {
   const onFilesChosen = (list) => {
     setError('');
     const arr = Array.from(list || []).filter((f) =>
-      ['image/jpeg', 'image/png', 'image/webp'].includes(f.type)
+      ['image/jpeg','image/png','image/webp'].includes(f.type)
     );
     setFiles(arr);
     setUploaded([]);
@@ -28,17 +28,14 @@ export default function AdminApp() {
     while (v >= 1024 && i < units.length-1) { v/=1024; i++; }
     return `${v.toFixed(1)} ${units[i]}`;
   };
-
-  const totalSize = useMemo(
-    () => files.reduce((a,f)=>a+(f?.size||0),0),
-    [files]
-  );
+  const totalSize = useMemo(() => files.reduce((a,f)=>a+(f?.size||0),0), [files]);
 
   async function doUpload() {
     if (!files.length) return;
     setUploading(true); setError(''); setProgress(0); setUploaded([]);
 
     try {
+      console.log('[upload] start -> files:', files.map(f=>f.name));
       const { uploaded } = await handleUpload(files, {
         endpoint: '/api/admin/upload',
         onUploadProgress({ uploaded, total }) {
@@ -47,7 +44,7 @@ export default function AdminApp() {
           }
         },
       });
-
+      console.log('[upload] success:', uploaded);
       setUploaded(uploaded || []);
       setProgress(100);
       setFiles([]);
@@ -67,12 +64,10 @@ export default function AdminApp() {
           Файлы отправляются <span className="font-mono">POST</span> на <span className="font-mono">/api/admin/upload</span>.
         </p>
 
-        {/* ВАЖНО: НЕТ action/method. Перехватываем submit и дергаем doUpload() */}
-        <form
+        <div
           className="mt-6 rounded-2xl border border-dashed border-neutral-700 p-8 text-center"
-          onSubmit={(e) => { e.preventDefault(); doUpload(); }}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); onFilesChosen(e.dataTransfer.files); }}
+          onDragOver={(e)=>e.preventDefault()}
+          onDrop={(e)=>{e.preventDefault(); onFilesChosen(e.dataTransfer.files);}}
         >
           <input
             ref={inputRef}
@@ -82,7 +77,6 @@ export default function AdminApp() {
             className="hidden"
             onChange={(e)=>onFilesChosen(e.target.files)}
           />
-
           <button
             type="button"
             onClick={()=>inputRef.current?.click()}
@@ -100,7 +94,7 @@ export default function AdminApp() {
                 Выбрано: {files.length} • Общий размер: {pretty(totalSize)}
               </div>
               <ul className="space-y-1 text-sm">
-                {files.map((f)=>(
+                {files.map(f=>(
                   <li key={f.name} className="truncate">
                     {f.name} <span className="text-neutral-500">({pretty(f.size)})</span>
                   </li>
@@ -111,25 +105,24 @@ export default function AdminApp() {
 
           <div className="mt-6 flex items-center gap-3 justify-center">
             <button
-              type="submit"
+              type="button"
+              onClick={doUpload}               // <-- жмём и летит POST
               disabled={!files.length || uploading}
               className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50"
             >
               {uploading ? 'Загрузка…' : 'Загрузить'}
             </button>
-            {uploading && (
-              <div className="text-sm text-neutral-400">Прогресс: {progress}%</div>
-            )}
+            {uploading && <div className="text-sm text-neutral-400">Прогресс: {progress}%</div>}
           </div>
 
           {error && <div className="mt-4 text-sm text-red-400">{error}</div>}
-        </form>
+        </div>
 
         {!!uploaded.length && (
           <div className="mt-10">
             <h2 className="text-xl font-semibold">Загружено:</h2>
             <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-              {uploaded.map((u)=>(
+              {uploaded.map(u=>(
                 <figure key={u.url} className="rounded-xl overflow-hidden border border-neutral-800" title={u.pathname}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={u.url} alt={u.pathname} className="w-full h-40 object-cover" />
