@@ -10,6 +10,7 @@ export default function AdminApp() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const [uploaded, setUploaded] = useState([]);
+  const [probeMsg, setProbeMsg] = useState('');
   const inputRef = useRef(null);
 
   const onFilesChosen = (list) => {
@@ -24,18 +25,32 @@ export default function AdminApp() {
 
   const pretty = (bytes) => {
     if (bytes == null) return '';
-    const units = ['B','KB','MB','GB']; let i=0, v=bytes;
-    while (v >= 1024 && i < units.length-1) { v/=1024; i++; }
-    return `${v.toFixed(1)} ${units[i]}`;
+    const u = ['B','KB','MB','GB']; let i=0, v=bytes;
+    while (v >= 1024 && i < u.length-1) { v/=1024; i++; }
+    return `${v.toFixed(1)} ${u[i]}`;
   };
   const totalSize = useMemo(() => files.reduce((a,f)=>a+(f?.size||0),0), [files]);
 
   async function doUpload() {
     if (!files.length) return;
-    setUploading(true); setError(''); setProgress(0); setUploaded([]);
+    setUploading(true); setError(''); setProgress(0); setUploaded([]); setProbeMsg('');
 
     try {
-      console.log('[upload] start -> files:', files.map(f=>f.name));
+      // 1) 🔎 ПРОБНЫЙ POST — просто проверяем, что POST доходит до сервера
+      const probe = await fetch('/api/admin/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ __probe: true }),
+      });
+      const probeJson = await probe.json();
+      console.log('[probe]', probe.status, probeJson);
+      setProbeMsg(`probe: ${probe.status} | hasBlobToken=${probeJson?.hasBlobToken}`);
+
+      if (!probe.ok) {
+        throw new Error('Пробный POST не дошёл до сервера');
+      }
+
+      // 2) Реальная загрузка
       const { uploaded } = await handleUpload(files, {
         endpoint: '/api/admin/upload',
         onUploadProgress({ uploaded, total }) {
@@ -44,7 +59,7 @@ export default function AdminApp() {
           }
         },
       });
-      console.log('[upload] success:', uploaded);
+
       setUploaded(uploaded || []);
       setProgress(100);
       setFiles([]);
@@ -106,7 +121,7 @@ export default function AdminApp() {
           <div className="mt-6 flex items-center gap-3 justify-center">
             <button
               type="button"
-              onClick={doUpload}               // <-- жмём и летит POST
+              onClick={doUpload}
               disabled={!files.length || uploading}
               className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50"
             >
@@ -115,7 +130,8 @@ export default function AdminApp() {
             {uploading && <div className="text-sm text-neutral-400">Прогресс: {progress}%</div>}
           </div>
 
-          {error && <div className="mt-4 text-sm text-red-400">{error}</div>}
+          {probeMsg && <div className="mt-3 text-xs text-neutral-400">{probeMsg}</div>}
+          {error && <div className="mt-3 text-sm text-red-400">{error}</div>}
         </div>
 
         {!!uploaded.length && (
