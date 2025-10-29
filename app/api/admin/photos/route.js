@@ -1,3 +1,4 @@
+// app/api/admin/photos/route.js
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -15,10 +16,12 @@ async function ensureSchema() {
       title TEXT,
       tags TEXT[],
       published BOOLEAN DEFAULT TRUE,
+      sort_index INT DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
   await sql/* sql */`ALTER TABLE photos ADD COLUMN IF NOT EXISTS sort_index INT DEFAULT 0`;
+  // Бэкофилл sort_index для старых записей
   await sql/* sql */`
     WITH ordered AS (
       SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn
@@ -34,12 +37,35 @@ async function ensureSchema() {
 export async function GET(request) {
   try {
     await ensureSchema();
+
     const { searchParams } = new URL(request.url);
     const onlyPublished = searchParams.get('published') === 'true';
 
+    // ВОТ ЗДЕСЬ: добавляем ordinal = row_number() по текущему порядку
     const query = onlyPublished
-      ? sql`SELECT id, url, published, sort_index, created_at FROM photos WHERE published = TRUE ORDER BY sort_index ASC, id ASC`
-      : sql`SELECT id, url, published, sort_index, created_at FROM photos ORDER BY sort_index ASC, id ASC`;
+      ? sql/* sql */`
+          SELECT
+            id,
+            url,
+            published,
+            sort_index,
+            created_at,
+            ROW_NUMBER() OVER (ORDER BY sort_index ASC, id ASC) AS ordinal
+          FROM photos
+          WHERE published = TRUE
+          ORDER BY sort_index ASC, id ASC
+        `
+      : sql/* sql */`
+          SELECT
+            id,
+            url,
+            published,
+            sort_index,
+            created_at,
+            ROW_NUMBER() OVER (ORDER BY sort_index ASC, id ASC) AS ordinal
+          FROM photos
+          ORDER BY sort_index ASC, id ASC
+        `;
 
     const { rows } = await query;
 
@@ -54,6 +80,7 @@ export async function GET(request) {
       },
     });
   } catch (err) {
+    console.error('PHOTOS LIST ERROR:', err);
     return NextResponse.json({ ok: false, error: String(err?.message || err) }, { status: 500 });
   }
 }
