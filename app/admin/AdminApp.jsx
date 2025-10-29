@@ -13,7 +13,6 @@ const theme = {
   chipOff:'text-xs px-2 py-0.5 rounded-md bg-yellow-500/15 text-yellow-300 ring-1 ring-yellow-300/20',
 };
 
-// ————— локальные превью выбранных файлов —————
 function FilePreviewGrid({ files, onRemove }) {
   if (!files?.length) return null;
   return (
@@ -22,12 +21,20 @@ function FilePreviewGrid({ files, onRemove }) {
         const url = URL.createObjectURL(f);
         return (
           <div key={i} className={`relative overflow-hidden ${theme.card}`}>
-            <img src={url} alt={f.name} className="block w-full h-40 object-cover select-none" onLoad={() => URL.revokeObjectURL(url)} />
+            <img
+              src={url}
+              alt={f.name}
+              className="block w-full h-40 object-cover select-none"
+              onLoad={() => URL.revokeObjectURL(url)}
+            />
             <div className="absolute bottom-0 inset-x-0 p-2 bg-black/30 backdrop-blur-sm text-xs text-white/90 whitespace-nowrap overflow-hidden text-ellipsis">
               {f.name}
             </div>
             {!!onRemove && (
-              <button onClick={() => onRemove(i)} className="absolute top-2 right-2 text-xs px-2 py-1 rounded-md bg-black/40 hover:bg-black/60 text-white">
+              <button
+                onClick={() => onRemove(i)}
+                className="absolute top-2 right-2 text-xs px-2 py-1 rounded-md bg-black/40 hover:bg-black/60 text-white"
+              >
                 Удалить
               </button>
             )}
@@ -38,7 +45,6 @@ function FilePreviewGrid({ files, onRemove }) {
   );
 }
 
-// ————— карточка уже загруженного фото —————
 function ExistingCard({ item, onToggle, onDelete, onMoveUp, onMoveDown }) {
   return (
     <div className={`overflow-hidden ${theme.card}`}>
@@ -63,16 +69,45 @@ function ExistingCard({ item, onToggle, onDelete, onMoveUp, onMoveDown }) {
   );
 }
 
+// —— helper: мягкая компрессия больших фото (до 1920px по ширине) ——
+async function compressImage(file, { maxW = 1920, quality = 0.82 } = {}) {
+  if (!file.type.startsWith('image/')) return file;
+
+  const img = document.createElement('img');
+  const url = URL.createObjectURL(file);
+  await new Promise((res, rej) => {
+    img.onload = res;
+    img.onerror = rej;
+    img.src = url;
+  });
+
+  const scale = Math.min(1, maxW / (img.naturalWidth || img.width || maxW));
+  const w = Math.round((img.naturalWidth || img.width) * scale);
+  const h = Math.round((img.naturalHeight || img.height) * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const mime = file.type.includes('png') ? 'image/png' : 'image/jpeg';
+  const dataUrl = canvas.toDataURL(mime, quality);
+
+  URL.revokeObjectURL(url);
+  const blob = await (await fetch(dataUrl)).blob();
+  // сохраняем расширение к имени
+  const ext = mime === 'image/png' ? '.png' : '.jpg';
+  const name = file.name.replace(/\.(jpe?g|png|webp|gif)$/i, '') + ext;
+  return new File([blob], name, { type: mime });
+}
+
 export default function AdminApp() {
-  // загрузка
   const [queue, setQueue] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [okMsg, setOkMsg] = useState('');
-
-  // существующие
   const [items, setItems] = useState([]);
-  const [dirtyOrder, setDirtyOrder] = useState(false); // порядок менялся
+  const [dirtyOrder, setDirtyOrder] = useState(false);
 
   const inputRef = useRef(null);
 
@@ -90,35 +125,64 @@ export default function AdminApp() {
 
   useEffect(() => { fetchExisting(); }, []);
 
-  // ——— очередь на загрузку ———
   function onFilesChosen(list) {
     setError('');
     setOkMsg('');
     const arr = Array.from(list || []);
     const onlyImages = arr.filter((f) => f.type.startsWith('image/'));
-    if (onlyImages.length !== arr.length) {
-      setError('Некоторые файлы не изображений — пропущены.');
-    }
+    if (onlyImages.length !== arr.length) setError('Некоторые файлы не изображений — пропущены.');
     setQueue((prev) => [...prev, ...onlyImages]);
   }
+
   function clearQueue() {
     setQueue([]);
     if (inputRef.current) inputRef.current.value = '';
   }
+
+  // ——— главный фикс: загружаем по ОДНОМУ файлу за запрос + компрессия ———
   async function doUpload() {
     if (!queue.length) return;
     setUploading(true);
     setError('');
     setOkMsg('');
+
     try {
-      const formData = new FormData();
-      for (const f of queue) formData.append('files', f);
+      let uploadedCount = 0;
 
-      const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Ошибка загрузки');
+      for (let i = 0; i < queue.length; i++) {
+        let file = queue[i];
 
-      setOkMsg(`✅ Загружено: ${Array.isArray(data.uploaded) ? data.uploaded.length : 0}`);
+        // Если файл крупный — ужмём до 1920px
+        if (file.size > 4 * 1024 * 1024) {
+          file = await compressImage(file);
+        }
+
+        const formData = new FormData();
+        formData.append('files', file);
+
+        const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+
+        // Vercel может вернуть HTML при 413 → сделаем понятное сообщение
+        if (res.status === 413) {
+          throw new Error('Файл слишком большой для загрузки. Попробуй выбрать меньше по размеру или дождаться сжатия.');
+        }
+
+        let data;
+        try {
+          data = await res.json(); // может бросить, если пришёл не JSON
+        } catch {
+          const text = await res.text();
+          throw new Error(`Сервер вернул неожиданный ответ: ${text.slice(0, 120)}…`);
+        }
+
+        if (!res.ok) {
+          throw new Error(data?.error || 'Ошибка загрузки файла');
+        }
+
+        uploadedCount += Array.isArray(data?.uploaded) ? data.uploaded.length : 1;
+      }
+
+      setOkMsg(`✅ Загружено: ${uploadedCount}`);
       clearQueue();
       await fetchExisting();
     } catch (e) {
@@ -128,7 +192,9 @@ export default function AdminApp() {
     }
   }
 
-  // ——— операции над существующими ———
+  function removeFromQueue(idx) { setQueue((prev) => prev.filter((_, i) => i !== idx)); }
+
+  // ——— порядок/видимость/удаление (как раньше) ———
   function swap(aIdx, bIdx) {
     setItems((prev) => {
       const arr = prev.slice();
@@ -152,11 +218,13 @@ export default function AdminApp() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids }),
     });
-    if (res.ok) { setDirtyOrder(false); } else {
+    if (!res.ok) {
       const j = await res.json().catch(() => ({}));
       setError(j?.error || 'Не удалось сохранить порядок');
+    } else {
+      setDirtyOrder(false);
+      await fetchExisting();
     }
-    await fetchExisting();
   }
   async function togglePublish(item) {
     const res = await fetch(`/api/admin/photos/${item.id}`, {
@@ -194,7 +262,7 @@ export default function AdminApp() {
           <p className={`${theme.muted} mt-2`}>Загрузка, публикация, порядок, удаление.</p>
         </header>
 
-        {/* === СЕЙЧАС ЗАГРУЖАЕМ === */}
+        {/* СЕЙЧАС ЗАГРУЖАЕМ */}
         <section className={`mb-10 p-5 md:p-6 ${theme.card}`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className={theme.sectionTitle}>СЕЙЧАС ЗАГРУЖАЕМ</h2>
@@ -215,7 +283,7 @@ export default function AdminApp() {
           </div>
 
           <div className="mt-6">
-            <FilePreviewGrid files={queue} onRemove={(i) => setQueue((prev) => prev.filter((_, idx) => idx !== i))} />
+            <FilePreviewGrid files={queue} onRemove={removeFromQueue} />
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -231,7 +299,7 @@ export default function AdminApp() {
           {error && <div className="mt-3 text-sm text-red-400">{error}</div>}
         </section>
 
-        {/* === УЖЕ НА САЙТЕ === */}
+        {/* УЖЕ НА САЙТЕ */}
         <section className={`p-5 md:p-6 ${theme.card}`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className={theme.sectionTitle}>УЖЕ НА САЙТЕ</h2>
