@@ -19,22 +19,32 @@ export async function PATCH(request, { params }) {
     const id = Number(params.id);
     if (!id) return NextResponse.json({ error: 'Bad id' }, { status: 400 });
 
-    const body = await request.json();
-    // Разрешаем менять опубликованность, заголовок и позицию
-    const { published, title, sort_index } = body || {};
+    // Страховка: колонка порядка
+    await sql/* sql */`ALTER TABLE photos ADD COLUMN IF NOT EXISTS sort_index INT DEFAULT 0`;
 
-    if (typeof published !== 'boolean' && typeof title !== 'string' && typeof sort_index !== 'number') {
+    const body = await request.json().catch(() => ({}));
+    let { published, title, sort_index } = body || {};
+
+    // Приводим типы и используем COALESCE: если поле не передано — оставляем текущее
+    const hasAny =
+      typeof published === 'boolean' ||
+      typeof title === 'string' ||
+      Number.isFinite(Number(sort_index));
+
+    if (!hasAny) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
     }
 
-    const fields = [];
-    if (typeof published === 'boolean') fields.push(sql`published = ${published}`);
-    if (typeof title === 'string')     fields.push(sql`title = ${title}`);
-    if (typeof sort_index === 'number')fields.push(sql`sort_index = ${sort_index}`);
+    if (typeof published !== 'boolean') published = null;
+    if (typeof title !== 'string') title = null;
+    sort_index = Number.isFinite(Number(sort_index)) ? Number(sort_index) : null;
 
     const { rows } = await sql/* sql */`
       UPDATE photos
-      SET ${sql.join(fields, sql`, `)}
+      SET
+        published  = COALESCE(${published}, published),
+        title      = COALESCE(${title}, title),
+        sort_index = COALESCE(${sort_index}, sort_index)
       WHERE id = ${id}
       RETURNING id, url, published, sort_index, title
     `;
@@ -52,8 +62,10 @@ export async function DELETE(request, { params }) {
     const id = Number(params.id);
     if (!id) return NextResponse.json({ error: 'Bad id' }, { status: 400 });
 
+    await sql/* sql */`ALTER TABLE photos ADD COLUMN IF NOT EXISTS sort_index INT DEFAULT 0`;
+
+    // Удаляем запись и блоб (если есть токен)
     const token = process.env.BLOB_READ_WRITE_TOKEN;
-    // Получим url, чтобы удалить блоб (опционально)
     const { rows } = await sql/* sql */`DELETE FROM photos WHERE id = ${id} RETURNING url`;
     const url = rows?.[0]?.url;
 
