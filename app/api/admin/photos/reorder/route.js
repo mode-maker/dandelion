@@ -9,20 +9,26 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 
 export async function POST(request) {
   try {
-    const body = await request.json();
+    await sql/* sql */`ALTER TABLE photos ADD COLUMN IF NOT EXISTS sort_index INT DEFAULT 0`;
+
+    const body = await request.json().catch(() => ({}));
     const ids = Array.isArray(body?.ids) ? body.ids : null;
     if (!ids?.length) return NextResponse.json({ error: 'ids[] required' }, { status: 400 });
 
-    // Обновляем sort_index через CASE
-    const values = ids.map((id, idx) => ({ id: Number(id), pos: idx + 1 })).filter(v => v.id);
-    if (!values.length) return NextResponse.json({ error: 'no valid ids' }, { status: 400 });
-
-    const cases = values.map(v => sql`WHEN id = ${v.id} THEN ${v.pos}`);
-    await sql/* sql */`
-      UPDATE photos
-      SET sort_index = CASE ${sql.join(cases, sql` `)} ELSE sort_index END
-      WHERE id = ANY(${sql.array(values.map(v => v.id), 'int4')})
-    `;
+    // Обновляем последовательно (надёжно везде). Для небольших коллекций это ок.
+    await sql/* sql */`BEGIN`;
+    try {
+      for (let i = 0; i < ids.length; i++) {
+        const id = Number(ids[i]);
+        if (!Number.isFinite(id)) continue;
+        const pos = i + 1;
+        await sql/* sql */`UPDATE photos SET sort_index = ${pos} WHERE id = ${id}`;
+      }
+      await sql/* sql */`COMMIT`;
+    } catch (e) {
+      await sql/* sql */`ROLLBACK`;
+      throw e;
+    }
 
     revalidatePath('/');
     revalidatePath('/gallery');
