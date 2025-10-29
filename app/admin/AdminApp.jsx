@@ -9,10 +9,22 @@ const theme = {
   muted: 'text-[color:var(--aurora-3)]/80',
   btn: 'px-5 py-2 rounded-xl bg-[#556B5A] hover:bg-[#5e7569] transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
   ghost: 'px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors',
+
+  // — новый приятный стиль бейджа для ID —
+  idBadge: 'px-2 py-0.5 rounded-lg text-xs font-medium bg-white/8 text-white/85 ring-1 ring-white/10 shadow-inner',
+
+  // — новые кнопки для ↑/↓ —
+  iconBtn: 'h-8 w-8 grid place-items-center rounded-lg bg-white/5 hover:bg-white/10 ring-1 ring-white/10 text-white/85 transition-all hover:shadow-md active:translate-y-px',
+
+  // — новая «вторая» кнопка для Скрыть/Показать —
+  secondaryBtn: 'px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 ring-1 ring-white/10 text-white/85 transition-all hover:shadow-md active:translate-y-px',
+
+  // оставить без изменений
   chipOn: 'text-xs px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-300/20',
-  chipOff:'text-xs px-2 py-0.5 rounded-md bg-yellow-500/15 text-yellow-300 ring-1 ring-yellow-300/20',
+  chipOff: 'text-xs px-2 py-0.5 rounded-md bg-yellow-500/15 text-yellow-300 ring-1 ring-yellow-300/20',
 };
 
+// ——— локальные превью выбранных файлов ———
 function FilePreviewGrid({ files, onRemove }) {
   if (!files?.length) return null;
   return (
@@ -45,29 +57,93 @@ function FilePreviewGrid({ files, onRemove }) {
   );
 }
 
+// ——— карточка уже загруженного фото ———
 function ExistingCard({ item, onToggle, onDelete, onMoveUp, onMoveDown }) {
+  const label = String(item.ordinal ?? item.id); // без символа '#'
   return (
     <div className={`overflow-hidden ${theme.card}`}>
-      <img src={item.url} alt={`photo-${item.id}`} className="block w-full h-40 object-cover" loading="lazy" />
+      <img
+        src={item.url}
+        alt={`photo-${item.id}`}
+        className="block w-full h-40 object-cover"
+        loading="lazy"
+      />
+
       <div className="px-3 py-2 flex items-center justify-between">
-        {/* Показываем динамический порядковый номер */}
-        <span className="text-white/85 text-xs">#{item.ordinal ?? item.id}</span>
+        {/* Бейдж с порядковым номером — без # */}
+        <span className={theme.idBadge}>{label}</span>
+
+        {/* Статус — оставить без изменений */}
         <span className={item.published ? theme.chipOn : theme.chipOff}>
           {item.published ? 'Публикуется' : 'Скрыто'}
         </span>
       </div>
+
       <div className="px-3 pb-3 flex items-center gap-2">
-        <button onClick={() => onMoveUp(item)} className={theme.ghost} title="Вверх">↑</button>
-        <button onClick={() => onMoveDown(item)} className={theme.ghost} title="Вниз">↓</button>
-        <button onClick={() => onToggle(item)} className={theme.ghost}>
-          {item.published ? 'Скрыть' : 'Опубликовать'}
+        {/* Современные компактные кнопки со стрелками */}
+        <button
+          onClick={() => onMoveUp(item)}
+          className={theme.iconBtn}
+          aria-label="Вверх"
+          title="Вверх"
+        >
+          ↑
         </button>
-        <button onClick={() => onDelete(item)} className="px-3 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-300">
+        <button
+          onClick={() => onMoveDown(item)}
+          className={theme.iconBtn}
+          aria-label="Вниз"
+          title="Вниз"
+        >
+          ↓
+        </button>
+
+        {/* Вторая кнопка — аккуратная пилюля; текст меняется но стиль один */}
+        <button onClick={() => onToggle(item)} className={theme.secondaryBtn}>
+          {item.published ? 'Скрыть' : 'Показать'}
+        </button>
+
+        {/* Кнопка удаления — оставить без изменений */}
+        <button
+          onClick={() => onDelete(item)}
+          className="px-3 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-300"
+        >
           Удалить
         </button>
       </div>
     </div>
   );
+}
+
+// —— helper: мягкая компрессия больших фото (до 1920px по ширине) ——
+async function compressImage(file, { maxW = 1920, quality = 0.82 } = {}) {
+  if (!file.type.startsWith('image/')) return file;
+
+  const img = document.createElement('img');
+  const url = URL.createObjectURL(file);
+  await new Promise((res, rej) => {
+    img.onload = res;
+    img.onerror = rej;
+    img.src = url;
+  });
+
+  const scale = Math.min(1, maxW / (img.naturalWidth || img.width || maxW));
+  const w = Math.round((img.naturalWidth || img.width) * scale);
+  const h = Math.round((img.naturalHeight || img.height) * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const mime = file.type.includes('png') ? 'image/png' : 'image/jpeg';
+  const dataUrl = canvas.toDataURL(mime, quality);
+
+  URL.revokeObjectURL(url);
+  const blob = await (await fetch(dataUrl)).blob();
+  const ext = mime === 'image/png' ? '.png' : '.jpg';
+  const name = file.name.replace(/\.(jpe?g|png|webp|gif)$/i, '') + ext;
+  return new File([blob], name, { type: mime });
 }
 
 export default function AdminApp() {
@@ -85,7 +161,6 @@ export default function AdminApp() {
     try {
       const res = await fetch('/api/admin/photos', { cache: 'no-store' });
       const data = await res.json();
-      // данные уже содержат ordinal
       setItems(Array.isArray(data) ? data : []);
       setDirtyOrder(false);
     } catch (e) {
@@ -109,23 +184,38 @@ export default function AdminApp() {
     if (inputRef.current) inputRef.current.value = '';
   }
 
+  // — загружаем по одному файлу (устойчиво к лимитам Vercel) —
   async function doUpload() {
     if (!queue.length) return;
     setUploading(true);
     setError('');
     setOkMsg('');
+
     try {
-      // загружаем по одному (устойчиво к лимитам)
       let uploadedCount = 0;
+
       for (let i = 0; i < queue.length; i++) {
-        const f = queue[i];
-        const fd = new FormData();
-        fd.append('files', f);
-        const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
-        const data = await res.json().catch(async () => ({ error: await res.text() }));
-        if (!res.ok) throw new Error(data?.error || 'Ошибка загрузки');
+        let file = queue[i];
+        if (file.size > 4 * 1024 * 1024) file = await compressImage(file);
+
+        const formData = new FormData();
+        formData.append('files', file);
+
+        const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+        if (res.status === 413) throw new Error('Файл слишком большой. Попробуйте меньший размер.');
+
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          const text = await res.text();
+          throw new Error(`Сервер вернул неожиданный ответ: ${text.slice(0, 120)}…`);
+        }
+        if (!res.ok) throw new Error(data?.error || 'Ошибка загрузки файла');
+
         uploadedCount += Array.isArray(data?.uploaded) ? data.uploaded.length : 1;
       }
+
       setOkMsg(`✅ Загружено: ${uploadedCount}`);
       clearQueue();
       await fetchExisting();
@@ -138,7 +228,7 @@ export default function AdminApp() {
 
   function removeFromQueue(idx) { setQueue((prev) => prev.filter((_, i) => i !== idx)); }
 
-  // локальная перестановка карточек
+  // — порядок / видимость / удаление —
   function swap(aIdx, bIdx) {
     setItems((prev) => {
       const arr = prev.slice();
@@ -155,9 +245,7 @@ export default function AdminApp() {
     const i = items.findIndex((x) => x.id === item.id);
     if (i < items.length - 1) swap(i, i + 1);
   }
-
   async function saveOrder() {
-    // отправляем стабильные id, а ordinal сервер посчитает заново
     const ids = items.map((x) => x.id);
     const res = await fetch('/api/admin/photos/reorder', {
       method: 'POST',
@@ -169,10 +257,9 @@ export default function AdminApp() {
       setError(j?.error || 'Не удалось сохранить порядок');
     } else {
       setDirtyOrder(false);
-      await fetchExisting(); // обновит ordinal
+      await fetchExisting();
     }
   }
-
   async function togglePublish(item) {
     const res = await fetch(`/api/admin/photos/${item.id}`, {
       method: 'PATCH',
@@ -185,7 +272,6 @@ export default function AdminApp() {
     }
     await fetchExisting();
   }
-
   async function remove(item) {
     const ok = confirm('Удалить фото? Это действие необратимо.');
     if (!ok) return;
@@ -207,10 +293,12 @@ export default function AdminApp() {
       <div className="mx-auto max-w-6xl px-4 py-10 md:py-12">
         <header className="mb-8 md:mb-10 text-center">
           <h1 className={theme.h1}>Админ-панель · Галерея</h1>
-          <p className={`${theme.muted} mt-2`}>Загрузка, публикация, порядок, удаление. Порядковый номер обновляется автоматически.</p>
+          <p className={`${theme.muted} mt-2`}>
+            Загрузка, публикация, порядок, удаление. Порядковый номер обновляется автоматически.
+          </p>
         </header>
 
-        {/* СЕЙЧАС ЗАГРУЖАЕМ */}
+        {/* === СЕЙЧАС ЗАГРУЖАЕМ === */}
         <section className={`mb-10 p-5 md:p-6 ${theme.card}`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className={theme.sectionTitle}>СЕЙЧАС ЗАГРУЖАЕМ</h2>
@@ -225,8 +313,18 @@ export default function AdminApp() {
             <p className="text-white/90">Перетащи сюда изображения</p>
             <p className="text-white/70 text-sm">или выбери файл(ы) вручную</p>
             <div className="mt-3">
-              <input ref={inputRef} onChange={(e) => onFilesChosen(e.target.files)} type="file" accept="image/*" multiple className="hidden" id="pick-files" />
-              <label htmlFor="pick-files" className={`${theme.btn} inline-block cursor-pointer`}>Выбрать файлы</label>
+              <input
+                ref={inputRef}
+                onChange={(e) => onFilesChosen(e.target.files)}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                id="pick-files"
+              />
+              <label htmlFor="pick-files" className={`${theme.btn} inline-block cursor-pointer`}>
+                Выбрать файлы
+              </label>
             </div>
           </div>
 
@@ -235,10 +333,18 @@ export default function AdminApp() {
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <button onClick={doUpload} disabled={!queue.length || uploading} className={theme.btn}>
+            <button
+              onClick={doUpload}
+              disabled={!queue.length || uploading}
+              className={theme.btn}
+            >
               {uploading ? 'Загрузка…' : 'Загрузить'}
             </button>
-            <button onClick={clearQueue} disabled={!queue.length || uploading} className={theme.ghost}>
+            <button
+              onClick={clearQueue}
+              disabled={!queue.length || uploading}
+              className={theme.ghost}
+            >
               Очистить очередь
             </button>
           </div>
@@ -247,13 +353,17 @@ export default function AdminApp() {
           {error && <div className="mt-3 text-sm text-red-400">{error}</div>}
         </section>
 
-        {/* УЖЕ НА САЙТЕ */}
+        {/* === УЖЕ НА САЙТЕ === */}
         <section className={`p-5 md:p-6 ${theme.card}`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className={theme.sectionTitle}>УЖЕ НА САЙТЕ</h2>
             <div className="flex gap-2">
               <button onClick={fetchExisting} className={theme.ghost}>Обновить</button>
-              <button onClick={saveOrder} disabled={!dirtyOrder} className={`${dirtyOrder ? theme.btn : 'px-5 py-2 rounded-xl bg-white/10 text-white/60'}`}>
+              <button
+                onClick={saveOrder}
+                disabled={!dirtyOrder}
+                className={`${dirtyOrder ? theme.btn : 'px-5 py-2 rounded-xl bg-white/10 text-white/60'}`}
+              >
                 Сохранить порядок
               </button>
             </div>
@@ -273,7 +383,7 @@ export default function AdminApp() {
           </div>
 
           <p className="text-[color:var(--aurora-3)]/70 mt-4 text-xs">
-            Порядок меняется ↑/↓, после «Сохранить порядок» номера (#1, #2, #3…) пересчитаются автоматически.
+            Порядок меняется ↑/↓, после «Сохранить порядок» номера пересчитаются автоматически.
           </p>
         </section>
       </div>
