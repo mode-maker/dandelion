@@ -50,7 +50,8 @@ function ExistingCard({ item, onToggle, onDelete, onMoveUp, onMoveDown }) {
     <div className={`overflow-hidden ${theme.card}`}>
       <img src={item.url} alt={`photo-${item.id}`} className="block w-full h-40 object-cover" loading="lazy" />
       <div className="px-3 py-2 flex items-center justify-between">
-        <span className="text-white/85 text-xs">#{item.id}</span>
+        {/* Показываем динамический порядковый номер */}
+        <span className="text-white/85 text-xs">#{item.ordinal ?? item.id}</span>
         <span className={item.published ? theme.chipOn : theme.chipOff}>
           {item.published ? 'Публикуется' : 'Скрыто'}
         </span>
@@ -69,38 +70,6 @@ function ExistingCard({ item, onToggle, onDelete, onMoveUp, onMoveDown }) {
   );
 }
 
-// —— helper: мягкая компрессия больших фото (до 1920px по ширине) ——
-async function compressImage(file, { maxW = 1920, quality = 0.82 } = {}) {
-  if (!file.type.startsWith('image/')) return file;
-
-  const img = document.createElement('img');
-  const url = URL.createObjectURL(file);
-  await new Promise((res, rej) => {
-    img.onload = res;
-    img.onerror = rej;
-    img.src = url;
-  });
-
-  const scale = Math.min(1, maxW / (img.naturalWidth || img.width || maxW));
-  const w = Math.round((img.naturalWidth || img.width) * scale);
-  const h = Math.round((img.naturalHeight || img.height) * scale);
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0, w, h);
-
-  const mime = file.type.includes('png') ? 'image/png' : 'image/jpeg';
-  const dataUrl = canvas.toDataURL(mime, quality);
-
-  URL.revokeObjectURL(url);
-  const blob = await (await fetch(dataUrl)).blob();
-  // сохраняем расширение к имени
-  const ext = mime === 'image/png' ? '.png' : '.jpg';
-  const name = file.name.replace(/\.(jpe?g|png|webp|gif)$/i, '') + ext;
-  return new File([blob], name, { type: mime });
-}
-
 export default function AdminApp() {
   const [queue, setQueue] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -116,6 +85,7 @@ export default function AdminApp() {
     try {
       const res = await fetch('/api/admin/photos', { cache: 'no-store' });
       const data = await res.json();
+      // данные уже содержат ordinal
       setItems(Array.isArray(data) ? data : []);
       setDirtyOrder(false);
     } catch (e) {
@@ -139,49 +109,23 @@ export default function AdminApp() {
     if (inputRef.current) inputRef.current.value = '';
   }
 
-  // ——— главный фикс: загружаем по ОДНОМУ файлу за запрос + компрессия ———
   async function doUpload() {
     if (!queue.length) return;
     setUploading(true);
     setError('');
     setOkMsg('');
-
     try {
+      // загружаем по одному (устойчиво к лимитам)
       let uploadedCount = 0;
-
       for (let i = 0; i < queue.length; i++) {
-        let file = queue[i];
-
-        // Если файл крупный — ужмём до 1920px
-        if (file.size > 4 * 1024 * 1024) {
-          file = await compressImage(file);
-        }
-
-        const formData = new FormData();
-        formData.append('files', file);
-
-        const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
-
-        // Vercel может вернуть HTML при 413 → сделаем понятное сообщение
-        if (res.status === 413) {
-          throw new Error('Файл слишком большой для загрузки. Попробуй выбрать меньше по размеру или дождаться сжатия.');
-        }
-
-        let data;
-        try {
-          data = await res.json(); // может бросить, если пришёл не JSON
-        } catch {
-          const text = await res.text();
-          throw new Error(`Сервер вернул неожиданный ответ: ${text.slice(0, 120)}…`);
-        }
-
-        if (!res.ok) {
-          throw new Error(data?.error || 'Ошибка загрузки файла');
-        }
-
+        const f = queue[i];
+        const fd = new FormData();
+        fd.append('files', f);
+        const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+        const data = await res.json().catch(async () => ({ error: await res.text() }));
+        if (!res.ok) throw new Error(data?.error || 'Ошибка загрузки');
         uploadedCount += Array.isArray(data?.uploaded) ? data.uploaded.length : 1;
       }
-
       setOkMsg(`✅ Загружено: ${uploadedCount}`);
       clearQueue();
       await fetchExisting();
@@ -194,7 +138,7 @@ export default function AdminApp() {
 
   function removeFromQueue(idx) { setQueue((prev) => prev.filter((_, i) => i !== idx)); }
 
-  // ——— порядок/видимость/удаление (как раньше) ———
+  // локальная перестановка карточек
   function swap(aIdx, bIdx) {
     setItems((prev) => {
       const arr = prev.slice();
@@ -211,7 +155,9 @@ export default function AdminApp() {
     const i = items.findIndex((x) => x.id === item.id);
     if (i < items.length - 1) swap(i, i + 1);
   }
+
   async function saveOrder() {
+    // отправляем стабильные id, а ordinal сервер посчитает заново
     const ids = items.map((x) => x.id);
     const res = await fetch('/api/admin/photos/reorder', {
       method: 'POST',
@@ -223,9 +169,10 @@ export default function AdminApp() {
       setError(j?.error || 'Не удалось сохранить порядок');
     } else {
       setDirtyOrder(false);
-      await fetchExisting();
+      await fetchExisting(); // обновит ordinal
     }
   }
+
   async function togglePublish(item) {
     const res = await fetch(`/api/admin/photos/${item.id}`, {
       method: 'PATCH',
@@ -238,6 +185,7 @@ export default function AdminApp() {
     }
     await fetchExisting();
   }
+
   async function remove(item) {
     const ok = confirm('Удалить фото? Это действие необратимо.');
     if (!ok) return;
@@ -259,7 +207,7 @@ export default function AdminApp() {
       <div className="mx-auto max-w-6xl px-4 py-10 md:py-12">
         <header className="mb-8 md:mb-10 text-center">
           <h1 className={theme.h1}>Админ-панель · Галерея</h1>
-          <p className={`${theme.muted} mt-2`}>Загрузка, публикация, порядок, удаление.</p>
+          <p className={`${theme.muted} mt-2`}>Загрузка, публикация, порядок, удаление. Порядковый номер обновляется автоматически.</p>
         </header>
 
         {/* СЕЙЧАС ЗАГРУЖАЕМ */}
@@ -325,7 +273,7 @@ export default function AdminApp() {
           </div>
 
           <p className="text-[color:var(--aurora-3)]/70 mt-4 text-xs">
-            Порядок меняется кнопками ↑/↓. Нажми «Сохранить порядок», чтобы применить на сайте.
+            Порядок меняется ↑/↓, после «Сохранить порядок» номера (#1, #2, #3…) пересчитаются автоматически.
           </p>
         </section>
       </div>
