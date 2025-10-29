@@ -1,4 +1,4 @@
-// middleware.ts (или middleware.js)
+// middleware.js
 import { NextResponse } from 'next/server';
 
 function unauthorized() {
@@ -8,31 +8,26 @@ function unauthorized() {
   });
 }
 
-// безопасный декодер base64 (работает в Edge и в dev)
-function b64decode(input: string): string {
+// Безопасный base64-декодер для Edge (atob) и dev/Node (Buffer)
+function b64decode(input) {
   try {
-    // Edge (Web API)
-    // @ts-ignore
     if (typeof atob === 'function') return atob(input);
   } catch {}
   try {
-    // Node/dev
-    // @ts-ignore
     if (typeof Buffer !== 'undefined') return Buffer.from(input, 'base64').toString('utf-8');
   } catch {}
   return '';
 }
 
-export function middleware(req: Request & { nextUrl: URL }) {
+export function middleware(req) {
   const { pathname } = req.nextUrl;
 
-  // защищаем только /admin и /api/admin
+  // Защищаем только /admin и /api/admin
   const needsAuth = pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
   if (!needsAuth) return NextResponse.next();
 
-  // пропускаем preflight и служебные
-  // @ts-ignore
-  if ((req as any).method === 'OPTIONS') return NextResponse.next();
+  // Пропускаем preflight-запросы
+  if (req.method === 'OPTIONS') return NextResponse.next();
 
   const user = process.env.ADMIN_USER || 'admin';
   const pass = process.env.ADMIN_PASS || '';
@@ -40,17 +35,19 @@ export function middleware(req: Request & { nextUrl: URL }) {
   const auth = (req.headers.get('authorization') || '').trim();
   if (!auth.startsWith('Basic ')) return unauthorized();
 
-  const b64 = auth.slice(6);
-  const decoded = b64decode(b64);
-  if (!decoded.includes(':')) return unauthorized();
+  const decoded = b64decode(auth.slice(6));
+  const sepIndex = decoded.indexOf(':');
+  if (sepIndex === -1) return unauthorized();
 
-  const [login, password] = decoded.split(':');
+  const login = decoded.slice(0, sepIndex);
+  const password = decoded.slice(sepIndex + 1);
+
   if (login !== user || password !== pass) return unauthorized();
 
   return NextResponse.next();
 }
 
-// Ограничиваем область действия middleware только нужными путями
+// Ограничиваем работу middleware только нужными путями
 export const config = {
   matcher: ['/admin/:path*', '/api/admin/:path*'],
 };
