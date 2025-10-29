@@ -1,3 +1,4 @@
+// components/Gallery.jsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -8,7 +9,7 @@ export default function Gallery() {
 
   async function load() {
     try {
-      const res = await fetch('/api/admin/photos?published=true', { cache: 'no-store' });
+      const res = await fetch('/api/photos', { cache: 'no-store' }); // ← тут /api/photos
       const data = await res.json();
       setItems(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -20,24 +21,19 @@ export default function Gallery() {
 
   useEffect(() => {
     load();
-    const iv = setInterval(load, 10000); // авто-обновление раз в 10с
-    const onFocus = () => load();
-    window.addEventListener('visibilitychange', onFocus);
-    window.addEventListener('focus', onFocus);
-    return () => {
-      clearInterval(iv);
-      window.removeEventListener('visibilitychange', onFocus);
-      window.removeEventListener('focus', onFocus);
-    };
   }, []);
 
   return (
     <section className="w-full py-10 md:py-14">
       <div className="mx-auto max-w-6xl px-4">
-        <h2 className="text-center text-2xl md:text-3xl font-semibold text-[#E7E8E0]">Галерея</h2>
+        <h2 className="text-center text-2xl md:text-3xl font-semibold text-[#E7E8E0]">
+          Галерея
+        </h2>
 
         {loading && <p className="mt-6 text-center text-[#E7E8E0]/70">Загружаем фотографии…</p>}
-        {!loading && items.length === 0 && <p className="mt-6 text-center text-[#E7E8E0]/70">Пока нет фотографий.</p>}
+        {!loading && items.length === 0 && (
+          <p className="mt-6 text-center text-[#E7E8E0]/70">Пока нет фотографий.</p>
+        )}
 
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 place-items-center">
           {items.map((p) => (
