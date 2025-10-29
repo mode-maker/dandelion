@@ -1,4 +1,3 @@
-// app/api/admin/photos/route.js
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -16,26 +15,25 @@ async function ensureSchema() {
       title TEXT,
       tags TEXT[],
       published BOOLEAN DEFAULT TRUE,
-      sort_index INT DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
-  // На случай старых записей без sort_index — проставим по id
+  await sql/* sql */`ALTER TABLE photos ADD COLUMN IF NOT EXISTS sort_index INT DEFAULT 0`;
   await sql/* sql */`
-    UPDATE photos p
-    SET sort_index = sub.rn
-    FROM (
+    WITH ordered AS (
       SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn
       FROM photos
-    ) sub
-    WHERE p.id = sub.id AND (p.sort_index IS NULL OR p.sort_index = 0)
+    )
+    UPDATE photos p
+    SET sort_index = o.rn
+    FROM ordered o
+    WHERE p.id = o.id AND (p.sort_index IS NULL OR p.sort_index = 0)
   `;
 }
 
 export async function GET(request) {
   try {
     await ensureSchema();
-
     const { searchParams } = new URL(request.url);
     const onlyPublished = searchParams.get('published') === 'true';
 
@@ -56,7 +54,6 @@ export async function GET(request) {
       },
     });
   } catch (err) {
-    console.error('PHOTOS LIST ERROR:', err);
     return NextResponse.json({ ok: false, error: String(err?.message || err) }, { status: 500 });
   }
 }
