@@ -38,13 +38,9 @@ export default function AlbumStrips(){
   }
 
   async function downloadAlbumZip(album){
-    // Простой клиентский ZIP без зависимостей — загружаем файлы по очереди
-    // и предлагаем браузеру «сохранить все». Если хочешь .zip — подключим JSZip позже.
     for (let i = 0; i < album.photos.length; i++){
       const p = album.photos[i];
       const name = `${album.title || 'album'}_${String(i+1).padStart(2,'0')}.jpg`;
-      // последовательно, чтобы не «прибить» браузер
-      // (для настоящего ZIP — подключим jszip при следующем шаге)
       await downloadPhoto(p.url, name);
     }
   }
@@ -75,24 +71,20 @@ export default function AlbumStrips(){
         <div className="mt-8 space-y-10">
           {albums.map((a, ai) => (
             <div key={a.id} className="rounded-2xl bg-black/10 ring-1 ring-white/5 shadow-lg shadow-black/20">
-              {/* Заголовок альбома */}
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="text-[#E7E8E0]">
                   <div className="text-base md:text-lg font-medium">{a.title || `Альбом #${a.id}`}</div>
                   <div className="text-xs md:text-sm text-[#E7E8E0]/70">{a.event_date || ''}</div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => downloadAlbumZip(a)}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-[#E7E8E0] text-sm hover:bg-white/15"
-                    title="Скачать весь альбом"
-                  >
-                    <DownloadIcon/> Скачать альбом
-                  </button>
-                </div>
+                <button
+                  onClick={() => downloadAlbumZip(a)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-[#E7E8E0] text-sm hover:bg-white/15"
+                  title="Скачать весь альбом"
+                >
+                  <DownloadIcon/> Скачать альбом
+                </button>
               </div>
 
-              {/* Горизонтальная лента */}
               <div className="px-4 pb-4">
                 <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-thin">
                   {a.photos.map((p, pi) => (
@@ -107,7 +99,7 @@ export default function AlbumStrips(){
                         onClick={() => open(ai, pi)}
                         loading="lazy"
                       />
-                      <figcaption className="px-3 py-2 flex items-center justify-end gap-2">
+                      <figcaption className="px-3 py-2 flex items-center justify-end">
                         <button
                           onClick={() => downloadPhoto(p.url, `photo_${p.id}.jpg`)}
                           className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-white/10 ring-1 ring-white/10 text-[#E7E8E0] hover:bg-white/15"
@@ -128,28 +120,12 @@ export default function AlbumStrips(){
         </div>
       </div>
 
-      {/* Лайтбокс */}
       {lightbox && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center"
-          onClick={close}
-        >
-          <button
-            className="absolute top-4 right-4 px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-white"
-            onClick={(e)=>{ e.stopPropagation(); close(); }}
-          >Закрыть</button>
-
-          <button
-            className="absolute left-4 md:left-8 px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-white"
-            onClick={(e)=>{ e.stopPropagation(); prev(); }}
-          >←</button>
-
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center" onClick={close}>
+          <button className="absolute top-4 right-4 px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-white" onClick={(e)=>{e.stopPropagation();close();}}>Закрыть</button>
+          <button className="absolute left-4 md:left-8 px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-white" onClick={(e)=>{e.stopPropagation();prev();}}>←</button>
           <img src={lightbox.url} alt="" className="max-h-[90vh] max-w-[90vw] rounded-xl ring-1 ring-white/10 shadow-2xl" />
-
-          <button
-            className="absolute right-4 md:right-8 px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-white"
-            onClick={(e)=>{ e.stopPropagation(); next(); }}
-          >→</button>
+          <button className="absolute right-4 md:right-8 px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-white" onClick={(e)=>{e.stopPropagation();next();}}>→</button>
         </div>
       )}
     </section>
