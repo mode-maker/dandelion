@@ -1,67 +1,183 @@
 // app/api/admin/photos/route.js
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
 import { NextResponse } from 'next/server';
-import { sql } from '@vercel/postgres';
+import { neon } from '@neondatabase/serverless';
 
-// на всякий случай создадим схему/колонки
-async function ensureSchema() {
-  await sql/* sql */`
-    CREATE TABLE IF NOT EXISTS albums (
-      id SERIAL PRIMARY KEY,
-      title TEXT NOT NULL,
-      event_date DATE,
-      published BOOLEAN DEFAULT TRUE,
-      sort_index INT DEFAULT 0,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `;
-  await sql/* sql */`
-    CREATE TABLE IF NOT EXISTS photos (
-      id SERIAL PRIMARY KEY,
-      album_id INT REFERENCES albums(id) ON DELETE CASCADE,
-      url TEXT NOT NULL,
-      width INT,
-      height INT,
-      title TEXT,
-      tags TEXT[],
-      published BOOLEAN DEFAULT TRUE,
-      sort_index INT DEFAULT 0,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `;
-  await sql/* sql */`ALTER TABLE photos ADD COLUMN IF NOT EXISTS album_id INT REFERENCES albums(id) ON DELETE CASCADE`;
-  await sql/* sql */`ALTER TABLE photos ADD COLUMN IF NOT EXISTS sort_index INT DEFAULT 0`;
+// Подключение к Neon (DATABASE_URL должен быть задан)
+const sql = neon(process.env.DATABASE_URL);
+
+// Универсальная утилита ответа с ошибкой
+function err(status, msg) {
+  return NextResponse.json({ error: msg }, { status });
 }
 
-export async function GET(request) {
+// Нормализация строк -> JSON с именами как на фронте
+function mapPhotoRow(r) {
+  return {
+    id: r.id,
+    url: r.url,
+    album_id: r.album_id,         // сохраняем snake_case для совместимости
+    albumId: r.album_id,          // и camelCase — фронту удобно
+    sort_index: r.sort_index,
+    sortIndex: r.sort_index,
+    is_published: r.is_published,
+    published: r.is_published
+  };
+}
+
+/**
+ * GET /api/admin/photos?albumId=7&includeHidden=1
+ * (поддерживаем и album_id)
+ */
+export async function GET(req) {
   try {
-    await ensureSchema();
+    const { searchParams } = new URL(req.url);
+    const albumIdRaw =
+      searchParams.get('albumId') ??
+      searchParams.get('album_id');
 
-    const { searchParams } = new URL(request.url);
-    const albumId = Number(searchParams.get('albumId')) || null;
-    const includeHidden = searchParams.get('includeHidden') === '1';
+    if (!albumIdRaw) return err(400, 'albumId is required');
 
-    if (!albumId) {
-      return NextResponse.json({ error: 'albumId required' }, { status: 400 });
+    const albumId = Number(albumIdRaw);
+    if (!Number.isFinite(albumId)) return err(400, 'albumId must be a number');
+
+    const includeHidden = ['1', 'true', 'yes'].includes(
+      (searchParams.get('includeHidden') || '').toLowerCase()
+    );
+
+    // Два готовых параметризованных запроса (без конкатенации SQL!)
+    const rows = includeHidden
+      ? await sql`
+          SELECT id, url, album_id, sort_index, is_published
+          FROM photos
+          WHERE album_id = ${albumId}
+          ORDER BY
+            sort_index NULLS LAST,
+            id
+        `
+      : await sql`
+          SELECT id, url, album_id, sort_index, is_published
+          FROM photos
+          WHERE album_id = ${albumId}
+            AND is_published = true
+          ORDER BY
+            sort_index NULLS LAST,
+            id
+        `;
+
+    return NextResponse.json(rows.map(mapPhotoRow));
+  } catch (e) {
+    return err(500, e.message || 'Internal error');
+  }
+}
+
+/**
+ * POST /api/admin/photos/reorder
+ * Body: { ids: number[], albumId: number }
+ * Пронумеровывает sort_index по порядку массива ids
+ */
+export async function POST(req) {
+  try {
+    const pathname = new URL(req.url).pathname || '';
+    const isReorder = pathname.endsWith('/reorder');
+
+    if (!isReorder) {
+      return err(404, 'Not found');
     }
 
-    const rows = (
-      await sql/* sql */`
-        SELECT id, album_id, url, published, sort_index, created_at
-        FROM photos
-        WHERE album_id = ${albumId}
-          ${includeHidden ? sql`` : sql`AND published = TRUE`}
-        ORDER BY sort_index, id
-      `
-    ).rows;
+    const body = await req.json().catch(() => ({}));
+    const ids = Array.isArray(body.ids) ? body.ids : [];
+    const albumId = Number(body.albumId);
 
-    // добавим порядковый номер внутри альбома
-    const data = rows.map((r, i) => ({ ...r, ordinal: i + 1 }));
-    return NextResponse.json(data, { headers: { 'Cache-Control': 'no-store' } });
+    if (!Number.isFinite(albumId)) return err(400, 'albumId must be a number');
+    if (ids.length === 0) return err(400, 'ids must be a non-empty array');
+
+    // Проверим, что все id относятся к этому альбому (опционально)
+    const present = await sql`
+      SELECT id FROM photos WHERE album_id = ${albumId} AND id = ANY(${ids})
+    `;
+    const presentIds = new Set(present.map(r => r.id));
+    const unknown = ids.filter(id => !presentIds.has(id));
+    if (unknown.length) {
+      return err(400, `Some ids do not belong to album ${albumId}: ${unknown.join(', ')}`);
+    }
+
+    // Обновляем порядок — один батч в транзакции
+    await sql`BEGIN`;
+    for (let i = 0; i < ids.length; i++) {
+      // sort_index начинаем с 1
+      await sql`
+        UPDATE photos
+        SET sort_index = ${i + 1}
+        WHERE id = ${ids[i]} AND album_id = ${albumId}
+      `;
+    }
+    await sql`COMMIT`;
+
+    return NextResponse.json({ ok: true });
   } catch (e) {
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    try { await sql`ROLLBACK`; } catch {}
+    return err(500, e.message || 'Internal error');
+  }
+}
+
+/**
+ * PATCH /api/admin/photos/:id
+ * Body: { published?: boolean, url?: string }
+ */
+export async function PATCH(req) {
+  try {
+    // В Next Route Handlers PATCH не получает params, берём из url
+    const url = new URL(req.url);
+    const segments = url.pathname.split('/').filter(Boolean); // ["api","admin","photos",":id"]
+    const idStr = segments[segments.length - 1];
+    const id = Number(idStr);
+    if (!Number.isFinite(id)) return err(400, 'Invalid photo id');
+
+    const body = await req.json().catch(() => ({}));
+    const updates = [];
+
+    if (typeof body.published === 'boolean') {
+      updates.push(sql`is_published = ${body.published}`);
+    }
+    if (typeof body.url === 'string' && body.url) {
+      updates.push(sql`url = ${body.url}`);
+    }
+
+    if (updates.length === 0) return err(400, 'No fields to update');
+
+    // Сборка безопасным способом: sql`` поддерживает интерполяцию фрагментов
+    await sql`
+      UPDATE photos
+      SET ${sql.join(updates, sql`, `)}
+      WHERE id = ${id}
+    `;
+
+    const [row] = await sql`
+      SELECT id, url, album_id, sort_index, is_published
+      FROM photos
+      WHERE id = ${id}
+    `;
+
+    return NextResponse.json(row ? mapPhotoRow(row) : null);
+  } catch (e) {
+    return err(500, e.message || 'Internal error');
+  }
+}
+
+/**
+ * DELETE /api/admin/photos/:id
+ */
+export async function DELETE(req) {
+  try {
+    const url = new URL(req.url);
+    const segments = url.pathname.split('/').filter(Boolean);
+    const idStr = segments[segments.length - 1];
+    const id = Number(idStr);
+    if (!Number.isFinite(id)) return err(400, 'Invalid photo id');
+
+    await sql`DELETE FROM photos WHERE id = ${id}`;
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return err(500, e.message || 'Internal error');
   }
 }
