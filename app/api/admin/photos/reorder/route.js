@@ -5,24 +5,26 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
-import { revalidatePath, revalidateTag } from 'next/cache';
+import { revalidatePath } from 'next/cache';
 
 export async function POST(request) {
   try {
-    await sql/* sql */`ALTER TABLE photos ADD COLUMN IF NOT EXISTS sort_index INT DEFAULT 0`;
-
     const body = await request.json().catch(() => ({}));
     const ids = Array.isArray(body?.ids) ? body.ids : null;
+    const albumId = Number(body?.albumId) || null;
     if (!ids?.length) return NextResponse.json({ error: 'ids[] required' }, { status: 400 });
+    if (!albumId) return NextResponse.json({ error: 'albumId required' }, { status: 400 });
 
-    // Обновляем последовательно (надёжно везде). Для небольших коллекций это ок.
     await sql/* sql */`BEGIN`;
     try {
       for (let i = 0; i < ids.length; i++) {
         const id = Number(ids[i]);
         if (!Number.isFinite(id)) continue;
-        const pos = i + 1;
-        await sql/* sql */`UPDATE photos SET sort_index = ${pos} WHERE id = ${id}`;
+        await sql/* sql */`
+          UPDATE photos
+          SET sort_index = ${i + 1}
+          WHERE id = ${id} AND album_id = ${albumId}
+        `;
       }
       await sql/* sql */`COMMIT`;
     } catch (e) {
@@ -30,13 +32,9 @@ export async function POST(request) {
       throw e;
     }
 
-    revalidatePath('/');
-    revalidatePath('/gallery');
-    revalidateTag('gallery');
-
+    revalidatePath(`/albums/${albumId}`);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error('REORDER ERROR:', err);
     return NextResponse.json({ error: String(err?.message || err) }, { status: 500 });
   }
 }
