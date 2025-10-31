@@ -1,22 +1,28 @@
 // components/Gallery.jsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-// иконка загрузки (скачать)
-function DownloadIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden {...props}>
-      <path fill="currentColor" d="M5 20h14v-2H5v2zm7-18l-5.5 5.5 1.41 1.41L11 7.83V16h2V7.83l3.09 3.09 1.41-1.41L12 2z"/>
-    </svg>
-  );
+// форматируем дату красиво: 31 октября 2025
+function formatRuDate(input) {
+  if (!input) return '';
+  const d = new Date(input);
+  if (Number.isNaN(+d)) return '';
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(d);
 }
 
 export default function Gallery() {
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [lightbox, setLightbox] = useState(null); // {url, idx, albumIdx}
   const [error, setError] = useState('');
+  const [lightbox, setLightbox] = useState(null); // { albumIdx, idx, url }
+
+  // refs для горизонтальных лент
+  const stripRefs = useRef([]);
 
   useEffect(() => {
     (async () => {
@@ -35,7 +41,53 @@ export default function Gallery() {
     })();
   }, []);
 
-  // скачивание одного фото
+  // управление лайтбоксом + навигация клавиатурой
+  useEffect(() => {
+    function onKey(e) {
+      if (!lightbox) return;
+      if (e.key === 'Escape') setLightbox(null);
+      if (e.key === 'ArrowRight') next();
+      if (e.key === 'ArrowLeft') prev();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox]);
+
+  const open = (albumIdx, idx) => {
+    const url = albums[albumIdx]?.photos?.[idx]?.url;
+    if (url) setLightbox({ albumIdx, idx, url });
+  };
+  const close = () => setLightbox(null);
+  const next = () => {
+    const a = albums[lightbox.albumIdx];
+    const n = (lightbox.idx + 1) % (a.photos.length || 1);
+    setLightbox({ albumIdx: lightbox.albumIdx, idx: n, url: a.photos[n].url });
+  };
+  const prev = () => {
+    const a = albums[lightbox.albumIdx];
+    const n = (lightbox.idx - 1 + (a.photos.length || 1)) % (a.photos.length || 1);
+    setLightbox({ albumIdx: lightbox.albumIdx, idx: n, url: a.photos[n].url });
+  };
+
+  // прокрутка ленты стрелками
+  const scrollBy = (ai, dir = 1) => {
+    const el = stripRefs.current[ai];
+    if (!el) return;
+    const step = Math.round(el.clientWidth * 0.85);
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
+
+  // для тач-свайпа (мобилка)
+  const touchStartX = useRef(0);
+  const onTouchStart = (e) => (touchStartX.current = e.touches?.[0]?.clientX || 0);
+  const onTouchEnd = (ai, e) => {
+    const endX = e.changedTouches?.[0]?.clientX || 0;
+    const dx = endX - touchStartX.current;
+    if (Math.abs(dx) < 40) return; // маленькое движение игнорируем
+    scrollBy(ai, dx > 0 ? -1 : 1);
+  };
+
+  // загрузка одного файла (кнопка только в лайтах)
   async function downloadPhoto(url, filename = 'photo.jpg') {
     try {
       const resp = await fetch(url);
@@ -52,80 +104,78 @@ export default function Gallery() {
     }
   }
 
-  // простая версия “скачать весь альбом”: последовательно скачать все фото
-  async function downloadAlbum(album) {
-    for (let i = 0; i < album.photos.length; i++) {
-      const p = album.photos[i];
-      const name = `${album.title || 'album'}_${String(i + 1).padStart(2, '0')}.jpg`;
-      // последовательная загрузка, чтобы не перегружать браузер
-      // (по желанию сделаем ZIP в следующий шаг)
-      await downloadPhoto(p.url, name);
-    }
-  }
-
-  const open = (albumIdx, idx) => {
-    const url = albums[albumIdx]?.photos?.[idx]?.url;
-    if (url) setLightbox({ url, idx, albumIdx });
-  };
-  const close = () => setLightbox(null);
-  const next = () => {
-    if (!lightbox) return;
-    const album = albums[lightbox.albumIdx];
-    const n = (lightbox.idx + 1) % (album.photos.length || 1);
-    setLightbox({ ...lightbox, idx: n, url: album.photos[n].url });
-  };
-  const prev = () => {
-    if (!lightbox) return;
-    const album = albums[lightbox.albumIdx];
-    const n = (lightbox.idx - 1 + (album.photos.length || 1)) % (album.photos.length || 1);
-    setLightbox({ ...lightbox, idx: n, url: album.photos[n].url });
-  };
-
   return (
     <section className="w-full py-10 md:py-14">
-      <div className="mx-auto max-w-6xl px-4">
-        <h2 className="text-center text-2xl md:text-3xl font-semibold text-[#E7E8E0]">Галерея</h2>
+      {/* классы для скрытия скроллбара */}
+      <style jsx global>{`
+        .no-scrollbar {
+          -ms-overflow-style: none; /* IE/Edge */
+          scrollbar-width: none;    /* Firefox */
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+      `}</style>
 
-        {loading && (
-          <p className="mt-6 text-center text-[#E7E8E0]/70">Загружаем альбомы…</p>
-        )}
-        {!loading && error && (
-          <p className="mt-6 text-center text-red-300">{error}</p>
-        )}
+      <div className="mx-auto max-w-6xl px-4">
+        <h2 className="text-center text-2xl md:text-3xl font-semibold text-[#E7E8E0]">
+          Галерея
+        </h2>
+
+        {loading && <p className="mt-6 text-center text-[#E7E8E0]/70">Загружаем альбомы…</p>}
+        {!loading && error && <p className="mt-6 text-center text-red-300">{error}</p>}
         {!loading && !error && albums.length === 0 && (
           <p className="mt-6 text-center text-[#E7E8E0]/70">Пока нет альбомов.</p>
         )}
 
-        {/* альбомные ленты */}
         <div className="mt-8 space-y-10">
           {albums.map((a, ai) => (
             <div
               key={a.id}
-              className="rounded-2xl bg-black/10 ring-1 ring-white/5 shadow-lg shadow-black/20"
+              className="relative rounded-2xl bg-black/10 ring-1 ring-white/5 shadow-lg shadow-black/20 overflow-hidden"
             >
               {/* заголовок альбома */}
               <div className="flex items-center justify-between px-4 py-3">
-                <div className="text-[#E7E8E0]">
-                  <div className="text-base md:text-lg font-medium">
+                <div>
+                  <div className="text-[#E7E8E0] text-base md:text-lg font-medium">
                     {a.title || `Альбом #${a.id}`}
                   </div>
-                  <div className="text-xs md:text-sm text-[#E7E8E0]/70">
-                    {a.event_date || ''}
-                  </div>
+                  {a.event_date && (
+                    <div className="text-[#E7E8E0]/70 text-xs md:text-sm">
+                      {formatRuDate(a.event_date)}
+                    </div>
+                  )}
                 </div>
 
-                <button
-                  onClick={() => downloadAlbum(a)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-[#E7E8E0] text-sm hover:bg-white/15"
-                  title="Скачать весь альбом"
-                >
-                  <DownloadIcon /> Скачать альбом
-                </button>
+                <div className="hidden md:flex gap-2">
+                  {/* стрелки пролистывания (desktop) */}
+                  <button
+                    onClick={() => scrollBy(ai, -1)}
+                    className="h-9 w-9 grid place-items-center rounded-xl bg-white/10 ring-1 ring-white/10 text-[#E7E8E0] hover:bg-white/15"
+                    aria-label="Назад"
+                  >
+                    ←
+                  </button>
+                  <button
+                    onClick={() => scrollBy(ai, 1)}
+                    className="h-9 w-9 grid place-items-center rounded-xl bg-white/10 ring-1 ring-white/10 text-[#E7E8E0] hover:bg-white/15"
+                    aria-label="Вперёд"
+                  >
+                    →
+                  </button>
+                </div>
               </div>
+
+              {/* fade-градиенты по бокам для современного вида */}
+              <div className="pointer-events-none absolute inset-y-0 left-0 w-10 md:w-16 bg-gradient-to-r from-[rgba(7,11,20,0.85)] to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-10 md:w-16 bg-gradient-to-l from-[rgba(7,11,20,0.85)] to-transparent" />
 
               {/* горизонтальная лента */}
               <div className="px-4 pb-4">
-                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-thin">
+                <div
+                  ref={(el) => (stripRefs.current[ai] = el)}
+                  className="no-scrollbar flex gap-4 overflow-x-auto snap-x snap-mandatory"
+                  onTouchStart={onTouchStart}
+                  onTouchEnd={(e) => onTouchEnd(ai, e)}
+                >
                   {a.photos.map((p, pi) => (
                     <figure
                       key={p.id}
@@ -138,46 +188,64 @@ export default function Gallery() {
                         onClick={() => open(ai, pi)}
                         loading="lazy"
                       />
-                      <figcaption className="px-3 py-2 flex items-center justify-end">
-                        <button
-                          onClick={() =>
-                            downloadPhoto(p.url, `photo_${p.id}.jpg`)
-                          }
-                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-white/10 ring-1 ring-white/10 text-[#E7E8E0] hover:bg-white/15"
-                          title="Скачать фото"
-                        >
-                          <DownloadIcon /> Скачать
-                        </button>
-                      </figcaption>
                     </figure>
                   ))}
                   {a.photos.length === 0 && (
-                    <div className="text-[#E7E8E0]/70 px-2 py-4">
-                      В этом альбоме пока нет фото.
-                    </div>
+                    <div className="text-[#E7E8E0]/70 px-2 py-4">В этом альбоме пока нет фото.</div>
                   )}
                 </div>
               </div>
+
+              {/* кнопки-стрелки поверх ленты (mobile + desktop) */}
+              <button
+                onClick={() => scrollBy(ai, -1)}
+                className="absolute left-2 top-1/2 -translate-y-1/2 h-9 w-9 grid place-items-center rounded-full bg-black/40 backdrop-blur ring-1 ring-white/10 text-white hover:bg-black/55"
+                aria-label="Назад"
+              >
+                ←
+              </button>
+              <button
+                onClick={() => scrollBy(ai, 1)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 grid place-items-center rounded-full bg-black/40 backdrop-blur ring-1 ring-white/10 text-white hover:bg-black/55"
+                aria-label="Вперёд"
+              >
+                →
+              </button>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Лайтбокс */}
+      {/* Лайтбокс (именно здесь появляется «Скачать») */}
       {lightbox && (
         <div
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center"
           onClick={close}
         >
-          <button
-            className="absolute top-4 right-4 px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-white"
-            onClick={(e) => {
-              e.stopPropagation();
-              close();
-            }}
+          <div
+            className="absolute top-4 right-4 flex gap-2"
+            onClick={(e) => e.stopPropagation()}
           >
-            Закрыть
-          </button>
+            <button
+              onClick={() =>
+                downloadPhoto(
+                  lightbox.url,
+                  `photo_${albums[lightbox.albumIdx]?.photos?.[lightbox.idx]?.id || ''}.jpg`,
+                )
+              }
+              className="px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-white hover:bg-white/15"
+              title="Скачать фото"
+            >
+              Скачать
+            </button>
+            <button
+              onClick={close}
+              className="px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-white hover:bg-white/15"
+              title="Закрыть"
+            >
+              Закрыть
+            </button>
+          </div>
 
           <button
             className="absolute left-4 md:left-8 px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 text-white"
@@ -185,6 +253,7 @@ export default function Gallery() {
               e.stopPropagation();
               prev();
             }}
+            aria-label="Предыдущее фото"
           >
             ←
           </button>
@@ -201,6 +270,7 @@ export default function Gallery() {
               e.stopPropagation();
               next();
             }}
+            aria-label="Следующее фото"
           >
             →
           </button>
