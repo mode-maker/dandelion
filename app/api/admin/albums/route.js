@@ -7,8 +7,39 @@ import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { revalidatePath } from 'next/cache';
 
+async function ensureSchema() {
+  // albums
+  await sql/* sql */`
+    CREATE TABLE IF NOT EXISTS albums (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      event_date DATE,
+      published BOOLEAN DEFAULT TRUE,
+      sort_index INT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  // photos (если ещё не было) — с привязкой к альбому
+  await sql/* sql */`
+    CREATE TABLE IF NOT EXISTS photos (
+      id SERIAL PRIMARY KEY,
+      album_id INT REFERENCES albums(id) ON DELETE CASCADE,
+      url TEXT NOT NULL,
+      width INT,
+      height INT,
+      title TEXT,
+      tags TEXT[],
+      published BOOLEAN DEFAULT TRUE,
+      sort_index INT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+}
+
 export async function GET() {
   try {
+    await ensureSchema();
+
     const { rows } = await sql/* sql */`
       SELECT
         a.id, a.title, a.event_date, a.published, a.sort_index, a.created_at,
@@ -33,12 +64,16 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    await ensureSchema();
+
     const body = await request.json().catch(() => ({}));
     const title = String(body?.title || '').trim();
     const event_date = body?.event_date ? new Date(body.event_date) : null;
     if (!title) return NextResponse.json({ error: 'title required' }, { status: 400 });
 
-    const { rows: maxr } = await sql/* sql */`SELECT COALESCE(MAX(sort_index),0) AS max_pos FROM albums`;
+    const { rows: maxr } = await sql/* sql */`
+      SELECT COALESCE(MAX(sort_index),0) AS max_pos FROM albums
+    `;
     const pos = Number(maxr?.[0]?.max_pos || 0) + 1;
 
     const { rows } = await sql/* sql */`
