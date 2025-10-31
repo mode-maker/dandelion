@@ -7,8 +7,14 @@ import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 import { revalidatePath } from 'next/cache';
 
+async function ensureSchema() {
+  await sql`CREATE TABLE IF NOT EXISTS albums (id SERIAL PRIMARY KEY, title TEXT NOT NULL, event_date DATE, published BOOLEAN DEFAULT TRUE, sort_index INT DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW())`;
+}
+
 export async function PATCH(request, { params }) {
   try {
+    await ensureSchema();
+
     const id = Number(params.id);
     if (!id) return NextResponse.json({ error: 'bad id' }, { status: 400 });
     const body = await request.json().catch(() => ({}));
@@ -28,7 +34,6 @@ export async function PATCH(request, { params }) {
       WHERE id = ${id}
       RETURNING id, title, event_date, published, sort_index, created_at
     `;
-
     revalidatePath('/albums');
     return NextResponse.json(rows[0] || null);
   } catch (e) {
@@ -36,8 +41,10 @@ export async function PATCH(request, { params }) {
   }
 }
 
-export async function DELETE(request, { params }) {
+export async function DELETE(_req, { params }) {
   try {
+    await ensureSchema();
+
     const id = Number(params.id);
     if (!id) return NextResponse.json({ error: 'bad id' }, { status: 400 });
 
