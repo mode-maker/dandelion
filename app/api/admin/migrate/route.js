@@ -7,35 +7,47 @@ import { sql } from '@vercel/postgres';
 
 export async function GET() {
   try {
-    // На всякий случай создаём таблицу
+    // albums
+    await sql/* sql */`
+      CREATE TABLE IF NOT EXISTS albums (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        event_date DATE,
+        published BOOLEAN DEFAULT TRUE,
+        sort_index INT DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
+
+    // photos (+ album_id)
     await sql/* sql */`
       CREATE TABLE IF NOT EXISTS photos (
         id SERIAL PRIMARY KEY,
+        album_id INT REFERENCES albums(id) ON DELETE CASCADE,
         url TEXT NOT NULL,
         width INT,
         height INT,
         title TEXT,
         tags TEXT[],
         published BOOLEAN DEFAULT TRUE,
+        sort_index INT DEFAULT 0,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `;
-    // Добавляем колонку, если её нет
-    await sql/* sql */`ALTER TABLE photos ADD COLUMN IF NOT EXISTS sort_index INT DEFAULT 0`;
 
-    // Бэкофилл: если sort_index = 0 или NULL — проставим по порядку id
+    // бэкофилл sort_index
     await sql/* sql */`
-      WITH ordered AS (
-        SELECT id, ROW_NUMBER() OVER (ORDER BY id) AS rn
-        FROM photos
-      )
-      UPDATE photos p
-      SET sort_index = o.rn
-      FROM ordered o
-      WHERE p.id = o.id AND (p.sort_index IS NULL OR p.sort_index = 0)
+      UPDATE albums a SET sort_index = sub.rn
+      FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY id) rn FROM albums) sub
+      WHERE a.id = sub.id AND COALESCE(a.sort_index,0)=0
+    `;
+    await sql/* sql */`
+      UPDATE photos p SET sort_index = sub.rn
+      FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY id) rn FROM photos) sub
+      WHERE p.id = sub.id AND COALESCE(p.sort_index,0)=0
     `;
 
-    return NextResponse.json({ ok: true, msg: 'Migration applied' });
+    return NextResponse.json({ ok: true, msg: 'Albums + album_id migration applied' });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
   }
