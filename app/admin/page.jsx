@@ -40,7 +40,6 @@ export default function AdminAlbums() {
 
       setTitle(''); setDate('');
       if (redirect && j?.id) {
-        // сразу открываем страницу альбома, где есть загрузка фото
         router.push(`/admin/albums/${j.id}`);
         return;
       }
@@ -93,43 +92,24 @@ export default function AdminAlbums() {
           Админ · Альбомы
         </h1>
 
+        {/* Создание альбома */}
         <section className="mt-8 p-5 rounded-2xl bg-[color:var(--bg-1)] shadow-lg shadow-black/20 ring-1 ring-white/5">
           <h2 className="text-[color:var(--aurora-3)] text-sm uppercase tracking-wide">Создать альбом</h2>
           <div className="mt-4 flex flex-col sm:flex-row gap-3">
-            <input
-              value={title}
-              onChange={e=>setTitle(e.target.value)}
-              placeholder="Название (например, МК «Осенние флорариумы»)"
-              className="px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white outline-none flex-1"
-            />
-            <input
-              value={date}
-              onChange={e=>setDate(e.target.value)}
-              type="date"
-              className="px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white outline-none"
-            />
-            <button
-              onClick={() => createAlbum(true)}
-              disabled={loading}
-              className="px-5 py-2 rounded-xl bg-[#556B5A] hover:bg-[#5e7569] disabled:opacity-50"
-              title="Создать альбом и перейти к загрузке фото"
-            >
+            <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Название" className="px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white outline-none flex-1" />
+            <input value={date} onChange={e=>setDate(e.target.value)} type="date" className="px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white outline-none" />
+            <button onClick={() => createAlbum(true)} disabled={loading} className="px-5 py-2 rounded-xl bg-[#556B5A] hover:bg-[#5e7569] disabled:opacity-50">
               {loading ? 'Создаём…' : 'Создать альбом'}
             </button>
           </div>
           {err && <div className="mt-3 text-sm text-red-400">{err}</div>}
         </section>
 
+        {/* Список альбомов — отдельно каждый, с превью и кнопками */}
         <section className="mt-8 p-5 rounded-2xl bg-[color:var(--bg-1)] shadow-lg shadow-black/20 ring-1 ring-white/5">
           <div className="flex items-center justify-between">
             <h2 className="text-[color:var(--aurora-3)] text-sm uppercase tracking-wide">Список альбомов</h2>
-            <button
-              onClick={saveOrder}
-              disabled={!dirty}
-              className={`${dirty ? 'px-5 py-2 rounded-xl bg-[#556B5A] hover:bg-[#5e7569]' : 'px-5 py-2 rounded-xl bg-white/10 text-white/60'}`}
-            >
-              Сохранить порядок
-            </button>
+            <button onClick={saveOrder} disabled={!dirty} className={`${dirty ? 'px-5 py-2 rounded-xl bg-[#556B5A] hover:bg-[#5e7569]' : 'px-5 py-2 rounded-xl bg-white/10 text-white/60'}`}>Сохранить порядок</button>
           </div>
 
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -141,22 +121,33 @@ export default function AdminAlbums() {
                     <div className="text-white/85 text-sm">{a.title}</div>
                     <div className="text-white/60 text-xs">{a.event_date || '—'}</div>
                   </div>
-                  <div className="mt-2 text-white/70 text-xs">
-                    {a.published ? 'Публикуется' : 'Скрыт'} • {a.published_count ?? 0} фото
-                  </div>
+                  <div className="mt-2 text-white/70 text-xs">{a.published ? 'Публикуется' : 'Скрыт'} • {a.published_count ?? 0} фото</div>
                   <div className="mt-3 flex items-center gap-2">
                     <button onClick={() => i>0 && move(i, i-1)} className="h-8 w-8 grid place-items-center rounded-lg bg-white/5 ring-1 ring-white/10">↑</button>
                     <button onClick={() => i<albums.length-1 && move(i, i+1)} className="h-8 w-8 grid place-items-center rounded-lg bg-white/5 ring-1 ring-white/10">↓</button>
-                    <button onClick={() => togglePublished(a)} className="px-3 py-1.5 rounded-lg bg-white/5 ring-1 ring-white/10">
-                      {a.published ? 'Скрыть' : 'Показать'}
-                    </button>
-                    <Link href={`/admin/albums/${a.id}`} className="px-3 py-1.5 rounded-lg bg-[#556B5A] hover:bg-[#5e7569]">
-                      Открыть
-                    </Link>
-                    <button onClick={() => removeAlbum(a)} className="px-3 py-1.5 rounded-lg bg-red-500/15 text-red-300">
-                      Удалить
-                    </button>
+                    <button onClick={() => togglePublished(a)} className="px-3 py-1.5 rounded-lg bg-white/5 ring-1 ring-white/10">{a.published ? 'Скрыть' : 'Показать'}</button>
+                    <Link href={`/admin/albums/${a.id}`} className="px-3 py-1.5 rounded-lg bg-[#556B5A] hover:bg-[#5e7569]">Открыть</Link>
+                    <button onClick={() => removeAlbum(a)} className="px-3 py-1.5 rounded-lg bg-red-500/15 text-red-300">Удалить</button>
                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Превью как на сайте */}
+        <section className="mt-8 p-5 rounded-2xl bg-[color:var(--bg-1)] shadow-lg shadow-black/20 ring-1 ring-white/5">
+          <h2 className="text-[color:var(--aurora-3)] text-sm uppercase tracking-wide">Превью как на сайте</h2>
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {albums.map(a => (
+              <div key={`pub-${a.id}`} className="rounded-2xl overflow-hidden bg-black/10 shadow-lg shadow-black/20 ring-1 ring-white/5">
+                <img src={a.cover_url || '/og-image.jpg'} alt={a.title} className="w-full h-56 object-cover" />
+                <div className="p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[#E7E8E0] font-medium">{a.title}</h3>
+                    <span className="text-[#E7E8E0]/70 text-sm">{a.event_date || '—'}</span>
+                  </div>
+                  <div className="text-[#E7E8E0]/70 text-sm mt-1">{a.published_count ?? 0} фото</div>
                 </div>
               </div>
             ))}
