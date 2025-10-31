@@ -1,5 +1,5 @@
 // app/albums/page.jsx
-import AlbumStrips from '@/components/AlbumStrips';
+import AlbumStrips from '../../components/AlbumStrips';
 
 export const dynamic = 'force-dynamic';
 export const metadata = {
