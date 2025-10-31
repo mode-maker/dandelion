@@ -164,9 +164,7 @@ export default function Gallery() {
                 </div>
               </div>
 
-              {/* fade-градиенты по бокам для современного вида */}
-              <div className="pointer-events-none absolute inset-y-0 left-0 w-10 md:w-16 bg-gradient-to-r from-[rgba(7,11,20,0.85)] to-transparent" />
-              <div className="pointer-events-none absolute inset-y-0 right-0 w-10 md:w-16 bg-gradient-to-l from-[rgba(7,11,20,0.85)] to-transparent" />
+
 
               {/* горизонтальная лента */}
               <div className="px-4 pb-4">
