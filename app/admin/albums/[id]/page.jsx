@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic';
 const fmt = (d) =>
   d ? new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(d)) : '';
 
-/** универсальная обёртка: при 401 (Basic-Auth) повторяем 1 раз */
 async function fetchJSONRetry(url, options) {
   let res = await fetch(url, options);
   if (res.status === 401) res = await fetch(url, options);
@@ -16,7 +15,6 @@ async function fetchJSONRetry(url, options) {
   return res.json();
 }
 
-/** аккуратно читаем JSON из ответа об ошибке (если сервер его прислал) */
 async function readErrorBodySafely(res) {
   try {
     const txt = await res.text();
@@ -48,8 +46,8 @@ const normalizeAlbum = (a) => ({
 export default function AdminAlbum({ params }) {
   const albumId = Number(params.id);
   const [album, setAlbum] = useState(null);
-  const [items, setItems] = useState([]);          // всё (для управления)
-  const [pubPreview, setPubPreview] = useState([]); // только опубликованные (для верхней ленты как на сайте)
+  const [items, setItems] = useState([]);           // для управления
+  const [pubPreview, setPubPreview] = useState([]); // опубликованные для верхней ленты
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
@@ -58,13 +56,12 @@ export default function AdminAlbum({ params }) {
 
   async function load() {
     setMsg('');
-    // 1) альбом (через admin -> если упадёт, возьмём из public)
+    // альбом (admin -> fallback public)
     try {
       const albums = await fetchJSONRetry('/api/admin/albums', { cache: 'no-store' });
       const found = (Array.isArray(albums) ? albums : []).find((a) => a.id == albumId);
       if (found) setAlbum(normalizeAlbum(found));
-    } catch (_e) {
-      // fallback на public
+    } catch {
       try {
         const all = await fetch('/api/albums', { cache: 'no-store' }).then((r) => r.json());
         const found = (Array.isArray(all) ? all : []).find((a) => a.id == albumId);
@@ -72,7 +69,7 @@ export default function AdminAlbum({ params }) {
       } catch {}
     }
 
-    // 2) фото для управления (admin), пробуем оба имени параметра
+    // фото для управления (admin), поддерживаем оба имени параметра
     try {
       const qs = `albumId=${albumId}&album_id=${albumId}&includeHidden=1`;
       const res = await fetch(`/api/admin/photos?${qs}`, { cache: 'no-store' });
@@ -91,7 +88,7 @@ export default function AdminAlbum({ params }) {
       );
     }
 
-    // 3) превью (как на сайте) — всегда из public, чтобы не зависеть от admin-ошибок
+    // превью как на сайте (public)
     try {
       const all = await fetch('/api/albums', { cache: 'no-store' }).then((r) => r.json());
       const found = (Array.isArray(all) ? all : []).find((a) => a.id == albumId);
@@ -161,16 +158,6 @@ export default function AdminAlbum({ params }) {
     await load();
   }
 
-  async function makeCover(it) {
-    const idx = items.findIndex((x) => x.id === it.id);
-    if (idx <= 0) return;
-    const arr = items.slice();
-    const [picked] = arr.splice(idx, 1);
-    arr.unshift(picked);
-    setItems(arr);
-    await saveOrder();
-  }
-
   return (
     <div className="min-h-screen bg-[color:var(--bg-0)]">
       <style jsx global>{`
@@ -188,7 +175,7 @@ export default function AdminAlbum({ params }) {
           </Link>
         </div>
 
-        {/* Превью как на публичном сайте (всегда есть, если есть опубликованные фото в public API) */}
+        {/* Превью как на публичном сайте */}
         <section className="mt-6 p-5 rounded-2xl bg-[color:var(--bg-1)] shadow-lg shadow-black/20 ring-1 ring-white/5 relative overflow-hidden">
           <div className="flex items-center justify-between pb-3">
             <h2 className="text-[color:var(--aurora-3)] text-sm uppercase tracking-wide">Превью</h2>
@@ -218,7 +205,7 @@ export default function AdminAlbum({ params }) {
           <button onClick={() => scrollBy(1)} className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 grid place-items-center rounded-full bg-black/40 backdrop-blur ring-1 ring-white/10 text-white hover:bg-black/55">→</button>
         </section>
 
-        {/* Панель управления (работает когда admin API отдаёт 200) */}
+        {/* Панель управления без кнопки "Сделать обложкой" */}
         <section className="mt-6 p-5 rounded-2xl bg-[color:var(--bg-1)] shadow-lg shadow-black/20 ring-1 ring-white/5">
           <div className="flex items-center justify-between">
             <h2 className="text-[color:var(--aurora-3)] text-sm uppercase tracking-wide">Панель управления</h2>
@@ -248,7 +235,6 @@ export default function AdminAlbum({ params }) {
                 <div className="px-3 pb-3 flex flex-wrap items-center gap-2">
                   <button onClick={() => i > 0 && move(i, i - 1)} className="h-8 px-3 rounded-lg bg-white/5 ring-1 ring-white/10">↑ Вверх</button>
                   <button onClick={() => i < items.length - 1 && move(i, i + 1)} className="h-8 px-3 rounded-lg bg-white/5 ring-1 ring-white/10">↓ Вниз</button>
-                  <button onClick={() => makeCover(it)} className="h-8 px-3 rounded-lg bg-white/5 ring-1 ring-white/10">Сделать обложкой</button>
                   <button onClick={() => togglePublish(it)} className="h-8 px-3 rounded-lg bg-white/5 ring-1 ring-white/10">
                     {it.published ? 'Скрыть' : 'Показать'}
                   </button>
