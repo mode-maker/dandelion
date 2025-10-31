@@ -1,158 +1,139 @@
 // app/admin/page.jsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
+function formatRuDate(d) {
+  if (!d) return '';
+  const date = new Date(d);
+  if (Number.isNaN(+date)) return '';
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(date);
+}
+
 export default function AdminAlbums() {
-  const router = useRouter();
-
   const [albums, setAlbums] = useState([]);
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState('');
-  const [dirty, setDirty] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState('');
+  const [photosMap, setPhotosMap] = useState({}); // { [albumId]: photos[] }
+  const [loading, setLoading] = useState(true);
+  const stripRefs = useRef([]);
 
-  async function load() {
-    setErr('');
-    const res = await fetch('/api/admin/albums', { cache: 'no-store' });
-    const data = await res.json().catch(() => []);
-    setAlbums(Array.isArray(data) ? data : []);
-    setDirty(false);
-  }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        // список альбомов (админ)
+        const a = await fetch('/api/admin/albums', { cache: 'no-store' })
+          .then(r => r.json()).catch(() => []);
+        const list = Array.isArray(a) ? a : [];
+        setAlbums(list);
 
-  async function createAlbum(redirect = true) {
-    if (!title.trim()) return setErr('Введите название альбома');
-    setLoading(true); setErr('');
-    try {
-      const res = await fetch('/api/admin/albums', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ title: title.trim(), event_date: date || null })
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(j?.error || 'Не удалось создать альбом');
-
-      setTitle(''); setDate('');
-      if (redirect && j?.id) {
-        router.push(`/admin/albums/${j.id}`);
-        return;
+        // подкачиваем опубликованные фото для превью (как на сайте)
+        const map = {};
+        await Promise.all(list.map(async (al) => {
+          const p = await fetch(`/api/admin/photos?albumId=${al.id}`, { cache: 'no-store' })
+            .then(r => r.json()).catch(() => []);
+          // В админ-превью показываем только опубликованные (так выглядит на сайте)
+          map[al.id] = Array.isArray(p) ? p.filter(x => x.published) : [];
+        }));
+        setPhotosMap(map);
+      } finally {
+        setLoading(false);
       }
-      await load();
-    } catch (e) {
-      setErr(e.message || 'Ошибка создания альбома');
-    } finally {
-      setLoading(false);
-    }
-  }
+    })();
+  }, []);
 
-  function move(i, j) {
-    setAlbums(prev => {
-      const arr = prev.slice();
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-      return arr;
-    });
-    setDirty(true);
-  }
-
-  async function saveOrder() {
-    const ids = albums.map(a => a.id);
-    const res = await fetch('/api/admin/albums/reorder', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ ids })
-    });
-    if (res.ok) { setDirty(false); await load(); }
-  }
-
-  async function togglePublished(a) {
-    await fetch(`/api/admin/albums/${a.id}`, {
-      method: 'PATCH',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ published: !a.published })
-    });
-    await load();
-  }
-
-  async function removeAlbum(a) {
-    if (!confirm('Удалить альбом? Фото тоже удалятся.')) return;
-    await fetch(`/api/admin/albums/${a.id}`, { method: 'DELETE' });
-    await load();
-  }
+  // стрелки прокрутки ленты
+  const scrollBy = (ai, dir = 1) => {
+    const el = stripRefs.current[ai];
+    if (!el) return;
+    const step = Math.round(el.clientWidth * 0.85);
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
 
   return (
     <div className="min-h-screen bg-[color:var(--bg-0)]">
+      {/* скрываем нижние скроллбары у лент */}
+      <style jsx global>{`
+        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+        .no-scrollbar::-webkit-scrollbar { display:none; }
+      `}</style>
+
       <div className="mx-auto max-w-6xl px-4 py-10 md:py-12">
         <h1 className="text-2xl md:text-3xl font-semibold text-[color:var(--aurora-3)] text-center">
           Админ · Альбомы
         </h1>
 
-        {/* Создание альбома */}
-        <section className="mt-8 p-5 rounded-2xl bg-[color:var(--bg-1)] shadow-lg shadow-black/20 ring-1 ring-white/5">
-          <h2 className="text-[color:var(--aurora-3)] text-sm uppercase tracking-wide">Создать альбом</h2>
-          <div className="mt-4 flex flex-col sm:flex-row gap-3">
-            <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Название" className="px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white outline-none flex-1" />
-            <input value={date} onChange={e=>setDate(e.target.value)} type="date" className="px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white outline-none" />
-            <button onClick={() => createAlbum(true)} disabled={loading} className="px-5 py-2 rounded-xl bg-[#556B5A] hover:bg-[#5e7569] disabled:opacity-50">
-              {loading ? 'Создаём…' : 'Создать альбом'}
-            </button>
-          </div>
-          {err && <div className="mt-3 text-sm text-red-400">{err}</div>}
-        </section>
+        {loading && (
+          <p className="mt-6 text-center text-white/70">Загружаем…</p>
+        )}
 
-        {/* Список альбомов — отдельно каждый, с превью и кнопками */}
-        <section className="mt-8 p-5 rounded-2xl bg-[color:var(--bg-1)] shadow-lg shadow-black/20 ring-1 ring-white/5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[color:var(--aurora-3)] text-sm uppercase tracking-wide">Список альбомов</h2>
-            <button onClick={saveOrder} disabled={!dirty} className={`${dirty ? 'px-5 py-2 rounded-xl bg-[#556B5A] hover:bg-[#5e7569]' : 'px-5 py-2 rounded-xl bg-white/10 text-white/60'}`}>Сохранить порядок</button>
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {albums.map((a, i) => (
-              <div key={a.id} className="overflow-hidden rounded-2xl bg-black/10 shadow-lg shadow-black/20 ring-1 ring-white/5">
-                <img src={a.cover_url || '/og-image.jpg'} alt={a.title} className="w-full h-40 object-cover" />
-                <div className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-white/85 text-sm">{a.title}</div>
-                    <div className="text-white/60 text-xs">{a.event_date || '—'}</div>
+        {!loading && (
+          <section className="mt-8 space-y-8">
+            {albums.map((a, ai) => (
+              <div key={a.id} className="relative rounded-2xl bg-black/10 ring-1 ring-white/5 shadow-lg shadow-black/20">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <div className="text-[#E7E8E0] text-base md:text-lg font-medium">
+                      {a.title || `Альбом #${a.id}`}
+                    </div>
+                    {a.event_date && (
+                      <div className="text-[#E7E8E0]/70 text-xs md:text-sm">
+                        {formatRuDate(a.event_date)}
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-2 text-white/70 text-xs">{a.published ? 'Публикуется' : 'Скрыт'} • {a.published_count ?? 0} фото</div>
-                  <div className="mt-3 flex items-center gap-2">
-                    <button onClick={() => i>0 && move(i, i-1)} className="h-8 w-8 grid place-items-center rounded-lg bg-white/5 ring-1 ring-white/10">↑</button>
-                    <button onClick={() => i<albums.length-1 && move(i, i+1)} className="h-8 w-8 grid place-items-center rounded-lg bg-white/5 ring-1 ring-white/10">↓</button>
-                    <button onClick={() => togglePublished(a)} className="px-3 py-1.5 rounded-lg bg-white/5 ring-1 ring-white/10">{a.published ? 'Скрыть' : 'Показать'}</button>
-                    <Link href={`/admin/albums/${a.id}`} className="px-3 py-1.5 rounded-lg bg-[#556B5A] hover:bg-[#5e7569]">Открыть</Link>
-                    <button onClick={() => removeAlbum(a)} className="px-3 py-1.5 rounded-lg bg-red-500/15 text-red-300">Удалить</button>
+
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/admin/albums/${a.id}`}
+                      className="px-3 py-1.5 rounded-xl bg-[#556B5A] hover:bg-[#5e7569] text-white"
+                    >
+                      Открыть
+                    </Link>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
 
-        {/* Превью как на сайте */}
-        <section className="mt-8 p-5 rounded-2xl bg-[color:var(--bg-1)] shadow-lg shadow-black/20 ring-1 ring-white/5">
-          <h2 className="text-[color:var(--aurora-3)] text-sm uppercase tracking-wide">Превью как на сайте</h2>
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {albums.map(a => (
-              <div key={`pub-${a.id}`} className="rounded-2xl overflow-hidden bg-black/10 shadow-lg shadow-black/20 ring-1 ring-white/5">
-                <img src={a.cover_url || '/og-image.jpg'} alt={a.title} className="w-full h-56 object-cover" />
-                <div className="p-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-[#E7E8E0] font-medium">{a.title}</h3>
-                    <span className="text-[#E7E8E0]/70 text-sm">{a.event_date || '—'}</span>
+                <div className="px-4 pb-4">
+                  <div
+                    ref={(el) => (stripRefs.current[ai] = el)}
+                    className="no-scrollbar flex gap-4 overflow-x-auto snap-x snap-mandatory"
+                  >
+                    {(photosMap[a.id] || []).map((p) => (
+                      <figure
+                        key={p.id}
+                        className="min-w-[300px] md:min-w-[420px] snap-start rounded-2xl overflow-hidden bg-black/10 ring-1 ring-white/5 shadow-md"
+                        title={`id ${p.id}`}
+                      >
+                        <img src={p.url} className="w-full h-56 object-cover" alt="" />
+                      </figure>
+                    ))}
+                    {(photosMap[a.id] || []).length === 0 && (
+                      <div className="text-white/70 px-2 py-4">Опубликованных фото нет.</div>
+                    )}
                   </div>
-                  <div className="text-[#E7E8E0]/70 text-sm mt-1">{a.published_count ?? 0} фото</div>
                 </div>
+
+                {/* стрелки поверх ленты */}
+                <button
+                  onClick={() => scrollBy(ai, -1)}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 h-9 w-9 grid place-items-center rounded-full bg-black/40 backdrop-blur ring-1 ring-white/10 text-white hover:bg-black/55"
+                  aria-label="Назад"
+                >←</button>
+                <button
+                  onClick={() => scrollBy(ai, 1)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 grid place-items-center rounded-full bg-black/40 backdrop-blur ring-1 ring-white/10 text-white hover:bg-black/55"
+                  aria-label="Вперёд"
+                >→</button>
               </div>
             ))}
-          </div>
-        </section>
+          </section>
+        )}
       </div>
     </div>
   );
