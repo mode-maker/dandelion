@@ -1,12 +1,12 @@
-// app/api/admin/import-photo/route.ts
+// app/api/admin/import-photo/route.js
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 
-export async function POST(req: NextRequest) {
+export async function POST(req) {
   const { albumId, url } = await req.json().catch(() => ({}));
   if (!url) return NextResponse.json({ error: 'url required' }, { status: 400 });
 
