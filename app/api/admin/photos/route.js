@@ -1,162 +1,92 @@
-// app/api/admin/photos/route.js
-import { NextResponse } from 'next/server';
-import { neon } from '@neondatabase/serverless';
+// app/api/admin/photos/route.ts
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-const sql = neon(process.env.DATABASE_URL);
+import { NextRequest, NextResponse } from 'next/server';
+import { sql } from '@vercel/postgres';
+import { del as blobDel } from '@vercel/blob';
 
-function jerror(status, msg) {
-  return NextResponse.json({ error: msg }, { status });
-}
+// GET /api/admin/photos?albumId=&q=&published=&limit=&offset=
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const albumId = searchParams.get('albumId');
+  const q = searchParams.get('q')?.trim();
+  const published = searchParams.get('published');
+  const limit = Math.min(100, Math.max(10, parseInt(searchParams.get('limit') || '30', 10)));
+  const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
 
-function mapRow(r) {
-  // Возвращаем и published, и is_published — фронт примет любое
-  return {
-    id: r.id,
-    url: r.url,
-    album_id: r.album_id,
-    albumId: r.album_id,
-    sort_index: r.sort_index,
-    sortIndex: r.sort_index,
-    published: r.published,
-    is_published: r.published,
-  };
-}
+  const where: string[] = [];
+  const params: any[] = [];
+  let i = 1;
 
-/**
- * GET /api/admin/photos?albumId=7&includeHidden=1
- * поддерживаем albumId и album_id
- */
-export async function GET(req) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const albumIdRaw = searchParams.get('albumId') ?? searchParams.get('album_id');
-    if (!albumIdRaw) return jerror(400, 'albumId is required');
+  if (albumId) { where.push(`album_id = $${i++}`); params.push(Number(albumId)); }
+  if (published === 'true' || published === 'false') { where.push(`published = $${i++}`); params.push(published === 'true'); }
+  if (q) { where.push(`(title ILIKE $${i} OR $${i} = ANY(tags))`); params.push(`%${q}%`); i++; }
 
-    const albumId = Number(albumIdRaw);
-    if (!Number.isFinite(albumId)) return jerror(400, 'albumId must be a number');
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
-    const includeHidden = ['1', 'true', 'yes'].includes(
-      (searchParams.get('includeHidden') || '').toLowerCase()
-    );
-
-    // published — реальное имя поля в БД
-    const rows = includeHidden
-      ? await sql`
-          SELECT id, url, album_id, sort_index, published
-          FROM photos
-          WHERE album_id = ${albumId}
-          ORDER BY sort_index NULLS LAST, id
-        `
-      : await sql`
-          SELECT id, url, album_id, sort_index, published
-          FROM photos
-          WHERE album_id = ${albumId}
-            AND COALESCE(published, true) = true
-          ORDER BY sort_index NULLS LAST, id
-        `;
-
-    return NextResponse.json(rows.map(mapRow));
-  } catch (e) {
-    return jerror(500, e.message || 'Internal error');
-  }
-}
-
-/**
- * POST /api/admin/photos/reorder
- * Body: { ids: number[], albumId: number }
- */
-export async function POST(req) {
-  try {
-    const pathname = new URL(req.url).pathname || '';
-    const isReorder = pathname.endsWith('/reorder');
-    if (!isReorder) return jerror(404, 'Not found');
-
-    const body = await req.json().catch(() => ({}));
-    const ids = Array.isArray(body.ids) ? body.ids : [];
-    const albumId = Number(body.albumId);
-    if (!Number.isFinite(albumId)) return jerror(400, 'albumId must be a number');
-    if (ids.length === 0) return jerror(400, 'ids must be a non-empty array');
-
-    const present = await sql`
-      SELECT id FROM photos
-      WHERE album_id = ${albumId} AND id = ANY(${ids})
-    `;
-    const presentIds = new Set(present.map(r => r.id));
-    const unknown = ids.filter(id => !presentIds.has(id));
-    if (unknown.length) {
-      return jerror(400, `Some ids do not belong to album ${albumId}: ${unknown.join(', ')}`);
-    }
-
-    await sql`BEGIN`;
-    for (let i = 0; i < ids.length; i++) {
-      await sql`
-        UPDATE photos
-        SET sort_index = ${i + 1}
-        WHERE id = ${ids[i]} AND album_id = ${albumId}
-      `;
-    }
-    await sql`COMMIT`;
-
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    try { await sql`ROLLBACK`; } catch {}
-    return jerror(500, e.message || 'Internal error');
-  }
-}
-
-/**
- * PATCH /api/admin/photos/:id
- * Body: { published?: boolean, url?: string }
- */
-export async function PATCH(req) {
-  try {
-    const url = new URL(req.url);
-    const parts = url.pathname.split('/').filter(Boolean); // ["api","admin","photos",":id"]
-    const id = Number(parts[parts.length - 1]);
-    if (!Number.isFinite(id)) return jerror(400, 'Invalid photo id');
-
-    const body = await req.json().catch(() => ({}));
-    const sets = [];
-
-    if (typeof body.published === 'boolean') {
-      sets.push(sql`published = ${body.published}`);
-    }
-    if (typeof body.url === 'string' && body.url) {
-      sets.push(sql`url = ${body.url}`);
-    }
-    if (sets.length === 0) return jerror(400, 'No fields to update');
-
-    await sql`
-      UPDATE photos
-      SET ${sql.join(sets, sql`, `)}
-      WHERE id = ${id}
-    `;
-
-    const [row] = await sql`
-      SELECT id, url, album_id, sort_index, published
+  const [rowsRes, countRes] = await Promise.all([
+    sql/* sql */`
+      SELECT id, album_id, url, width, height, title, tags, published, sort_index, created_at
       FROM photos
-      WHERE id = ${id}
-    `;
+      ${whereSql}
+      ORDER BY created_at DESC, id DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `.unsafe(params),
+    sql/* sql */`
+      SELECT COUNT(*)::int AS c
+      FROM photos
+      ${whereSql}
+    `.unsafe(params),
+  ]);
 
-    return NextResponse.json(row ? mapRow(row) : null);
-  } catch (e) {
-    return jerror(500, e.message || 'Internal error');
-  }
+  return NextResponse.json({
+    items: rowsRes.rows,
+    total: countRes.rows[0]?.c || 0,
+    limit, offset,
+  }, { headers: { 'Cache-Control': 'no-store' } });
 }
 
-/**
- * DELETE /api/admin/photos/:id
- */
-export async function DELETE(req) {
-  try {
-    const url = new URL(req.url);
-    const parts = url.pathname.split('/').filter(Boolean);
-    const id = Number(parts[parts.length - 1]);
-    if (!Number.isFinite(id)) return jerror(400, 'Invalid photo id');
+// PATCH /api/admin/photos  body: { id, title?, tags?, published?, sort_index? }
+export async function PATCH(req: NextRequest) {
+  const body = await req.json().catch(() => null);
+  if (!body || !body.id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 
-    await sql`DELETE FROM photos WHERE id = ${id}`;
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    return jerror(500, e.message || 'Internal error');
+  const fields: string[] = [];
+  const params: any[] = [];
+  let i = 1;
+
+  for (const [k, v] of Object.entries(body)) {
+    if (k === 'id') continue;
+    if (['title', 'tags', 'published', 'sort_index'].includes(k)) {
+      fields.push(`${k} = $${i++}`);
+      params.push(v);
+    }
   }
+  if (!fields.length) return NextResponse.json({ ok: true });
+
+  params.push(body.id);
+
+  const { rowCount } = await sql/* sql */`
+    UPDATE photos SET ${sql.raw(fields.join(', '))}
+    WHERE id = $${i}
+  `.unsafe(params);
+
+  return NextResponse.json({ ok: rowCount > 0 });
+}
+
+// DELETE /api/admin/photos  body: { id, url }
+export async function DELETE(req: NextRequest) {
+  const body = await req.json().catch(() => null);
+  if (!body?.id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+
+  // сначала удалим запись
+  await sql/* sql */`DELETE FROM photos WHERE id = ${body.id}`;
+
+  // затем удалим blob (если передан url и он действительно твой)
+  if (body.url && typeof body.url === 'string') {
+    try { await blobDel(body.url); } catch { /* ignore */ }
+  }
+  return NextResponse.json({ ok: true });
 }
