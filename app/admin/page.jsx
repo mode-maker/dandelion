@@ -1,105 +1,223 @@
-// app/admin/page.jsx
+// app/admin/page.tsx
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
+import Uploader from '@/components/admin/Uploader';
 
-export const dynamic = 'force-dynamic';
+type Photo = {
+  id: number;
+  album_id: number | null;
+  url: string;
+  width: number | null;
+  height: number | null;
+  title: string | null;
+  tags: string[] | null;
+  published: boolean;
+  sort_index: number | null;
+  created_at: string;
+};
 
-function formatRuDate(d) {
-  if (!d) return '';
-  const date = new Date(d);
-  if (Number.isNaN(+date)) return '';
-  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
-}
-
-function normalizePhoto(p) {
-  return {
-    id: p.id,
-    url: p.url || p.src || '',
-    published: typeof p.published === 'boolean' ? p.published :
-               typeof p.is_published === 'boolean' ? p.is_published : true,
-    albumId: p.albumId ?? p.album_id ?? null,
-    sortIndex: p.sort_index ?? p.sortIndex ?? null,
-  };
-}
-
-function normalizeAlbum(a) {
-  return {
-    id: a.id,
-    title: a.title ?? a.name ?? `Альбом #${a.id}`,
-    event_date: a.event_date ?? a.date ?? null,
-    photos: Array.isArray(a.photos) ? a.photos.map(normalizePhoto) : [],
-  };
-}
-
-export default function AdminAlbums() {
-  const [albums, setAlbums] = useState([]);
+export default function AdminPage() {
+  const [items, setItems] = useState<Photo[]>([]);
+  const [total, setTotal] = useState(0);
+  const [limit] = useState(60);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
-  const stripRefs = useRef([]);
+  const [q, setQ] = useState('');
+  const [albumId, setAlbumId] = useState<number | ''>('');
+  const [published, setPublished] = useState<'all'|'true'|'false'>('all');
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        // Публичный API — всегда без авторизации, поэтому превью не пустеют
-        const data = await fetch('/api/albums', { cache: 'no-store' }).then(r => r.json()).catch(() => []);
-        const list = Array.isArray(data) ? data.map(normalizeAlbum) : [];
-        setAlbums(list);
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async (reset = false) => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (albumId !== '') params.set('albumId', String(albumId));
+    if (q) params.set('q', q);
+    if (published !== 'all') params.set('published', published);
+    params.set('limit', String(limit));
+    params.set('offset', String(reset ? 0 : offset));
+    const r = await fetch(`/api/admin/photos?${params.toString()}`, { cache: 'no-store' });
+    const data = await r.json();
+    setItems(reset ? data.items : [...items, ...data.items]);
+    setTotal(data.total);
+    setOffset(reset ? data.items.length : offset + data.items.length);
+    setLoading(false);
+  }, [albumId, q, published, limit, offset, items]);
+
+  useEffect(() => { load(true); }, [albumId, q, published]); // перезагрузка при смене фильтров
+
+  // Виртуализация по вертикали
+  const listRef = useRef<HTMLDivElement>(null);
+  const ITEM_H = 160;
+  const GAP = 12;
+
+  const [range, setRange] = useState({ start: 0, end: 0 });
+
+  const onScroll = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const scrollTop = el.scrollTop;
+    const vh = el.clientHeight;
+    const per = ITEM_H + GAP;
+    const start = Math.max(0, Math.floor(scrollTop / per) - 5);
+    const visibleCount = Math.ceil(vh / per) + 10;
+    const end = Math.min(items.length, start + visibleCount);
+    setRange({ start, end });
+
+    // Догружать следующую страницу ближе к низу
+    if (!loading && end > items.length - 10 && items.length < total) {
+      load(false);
+    }
+  }, [items.length, loading, total, load]);
+
+  useEffect(() => { onScroll(); }, [items.length]); // пересчитать диапазон
+
+  const slice = useMemo(() => items.slice(range.start, range.end), [items, range]);
+
+  const updateMeta = useCallback(async (id: number, patch: Partial<Photo>) => {
+    // оптимистично
+    setItems(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+    await fetch('/api/admin/photos', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...patch }),
+    }).catch(() => null);
   }, []);
 
-  const scrollBy = (ai, dir = 1) => {
-    const el = stripRefs.current[ai];
-    if (!el) return;
-    el.scrollBy({ left: Math.round(el.clientWidth * 0.85) * dir, behavior: 'smooth' });
-  };
+  const remove = useCallback(async (p: Photo) => {
+    const ok = confirm('Удалить фото?');
+    if (!ok) return;
+    setItems(prev => prev.filter(x => x.id !== p.id));
+    await fetch('/api/admin/photos', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: p.id, url: p.url }),
+    }).catch(() => null);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[color:var(--bg-0)]">
-      <style jsx global>{`
-        .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
-        .no-scrollbar::-webkit-scrollbar{ display:none; }
-      `}</style>
+    <main className="min-h-screen px-4 md:px-8 py-6 bg-[#0e1712] text-[#E7E8E0]">
+      <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Админ-панель · Галерея</h1>
 
-      <div className="mx-auto max-w-6xl px-4 py-10 md:py-12">
-        <h1 className="text-2xl md:text-3xl font-semibold text-[color:var(--aurora-3)] text-center">Админ · Альбомы</h1>
+      {/* Панель фильтров + загрузка */}
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="text-sm opacity-75 mb-2">Фильтры</div>
+          <div className="flex flex-col gap-3">
+            <input
+              className="px-3 py-2 rounded-xl bg-black/20 ring-1 ring-white/10 outline-none"
+              placeholder="Поиск по названию/тегам…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <select
+                className="flex-1 px-3 py-2 rounded-xl bg-black/20 ring-1 ring-white/10"
+                value={albumId}
+                onChange={(e) => setAlbumId(e.target.value ? Number(e.target.value) : '')}
+              >
+                <option value="">Все альбомы</option>
+                {/* Если есть список альбомов — подставь сюда options */}
+              </select>
+              <select
+                className="px-3 py-2 rounded-xl bg-black/20 ring-1 ring-white/10"
+                value={published}
+                onChange={(e)=>setPublished(e.target.value as any)}
+              >
+                <option value="all">Все</option>
+                <option value="true">Опублик.</option>
+                <option value="false">Черновики</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
-        {loading && <p className="mt-6 text-center text-white/70">Загружаем…</p>}
-
-        {!loading && (
-          <section className="mt-8 space-y-8">
-            {albums.map((a, ai) => (
-              <div key={a.id} className="relative rounded-2xl bg-black/10 ring-1 ring-white/5 shadow-lg shadow-black/20 overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <div className="text-[#E7E8E0] text-base md:text-lg font-medium">{a.title}</div>
-                    {a.event_date && <div className="text-[#E7E8E0]/70 text-xs md:text-sm">{formatRuDate(a.event_date)}</div>}
-                  </div>
-                  <Link href={`/admin/albums/${a.id}`} className="px-3 py-1.5 rounded-xl bg-[#556B5A] hover:bg-[#5e7569] text-white">Открыть</Link>
-                </div>
-
-                <div className="px-4 pb-4">
-                  <div ref={(el) => (stripRefs.current[ai] = el)} className="no-scrollbar flex gap-4 overflow-x-auto snap-x snap-mandatory">
-                    {a.photos.map((p) => (
-                      <figure key={p.id} className="min-w-[300px] md:min-w-[420px] snap-start rounded-2xl overflow-hidden bg-black/10 ring-1 ring-white/5 shadow-md">
-                        <img src={p.url} className="w-full h-56 object-cover" alt="" />
-                      </figure>
-                    ))}
-                    {a.photos.length === 0 && <div className="text-white/70 px-2 py-4">Опубликованных фото нет.</div>}
-                  </div>
-                </div>
-
-                <button onClick={() => scrollBy(ai, -1)} className="absolute left-2 top-1/2 -translate-y-1/2 h-9 w-9 grid place-items-center rounded-full bg-black/40 backdrop-blur ring-1 ring-white/10 text-white hover:bg-black/55">←</button>
-                <button onClick={() => scrollBy(ai, 1)} className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 grid place-items-center rounded-full bg-black/40 backdrop-blur ring-1 ring-white/10 text-white hover:bg-black/55">→</button>
-              </div>
-            ))}
-          </section>
-        )}
+        <div className="md:col-span-2">
+          <Uploader albumId={albumId === '' ? null : albumId} onUploaded={() => load(true)} />
+        </div>
       </div>
-    </div>
+
+      {/* Список (виртуализированный контейнер) */}
+      <div
+        ref={listRef}
+        onScroll={onScroll}
+        className="mt-6 h-[70vh] overflow-y-auto rounded-2xl border border-white/10 bg-white/5 no-scrollbar"
+      >
+        {/* Верхний спейсер */}
+        <div style={{ height: (ITEM_H + GAP) * range.start }} />
+
+        {slice.map((p, i) => {
+          const idx = range.start + i;
+          const w = p.width || 1600;
+          const h = p.height || 900;
+          return (
+            <div
+              key={p.id}
+              className="mx-3 my-[6px] flex items-center gap-4 p-3 rounded-xl bg-black/10 ring-1 ring-white/5 shadow-md hover:shadow-lg transition-shadow"
+              style={{ height: ITEM_H }}
+            >
+              <div className="relative w-48 h-[136px] rounded-lg overflow-hidden ring-1 ring-white/10">
+                <Image
+                  src={p.url}
+                  alt={p.title || ''}
+                  width={w}
+                  height={h}
+                  sizes="192px"
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  quality={60}
+                />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <input
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 outline-none mb-2"
+                  placeholder="Название / подпись"
+                  defaultValue={p.title || ''}
+                  onBlur={(e)=>updateMeta(p.id, { title: e.target.value })}
+                />
+
+                <input
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 outline-none"
+                  placeholder="Теги (через запятую)"
+                  defaultValue={(p.tags || []).join(', ')}
+                  onBlur={(e)=>{
+                    const tags = e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
+                    updateMeta(p.id, { tags });
+                  }}
+                />
+              </div>
+
+              <div className="flex flex-col items-end gap-2">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    defaultChecked={p.published}
+                    onChange={(e)=>updateMeta(p.id, { published: e.target.checked })}
+                  />
+                  Опубликовано
+                </label>
+                <button
+                  className="px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 hover:bg-white/15"
+                  onClick={()=>remove(p)}
+                >
+                  Удалить
+                </button>
+                <div className="opacity-60 text-xs">
+                  {new Date(p.created_at).toLocaleString('ru-RU')}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Нижний спейсер */}
+        <div style={{ height: Math.max(0, (ITEM_H + GAP) * (items.length - range.end)) }} />
+
+        {loading ? (
+          <div className="py-6 text-center opacity-70">Загрузка…</div>
+        ) : null}
+      </div>
+    </main>
   );
 }
