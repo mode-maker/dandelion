@@ -120,3 +120,18 @@ body { color: var(--text-on-dark); }
   color: var(--text-on-light) !important;
   text-shadow: 0 1px 0 rgba(255,255,255,0.6);
 }
+
+/* ========= Галерея: перфоманс-утилиты ========= */
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .content-auto { content-visibility: auto; contain-intrinsic-size: 300px 420px; }
+}
+
+/* На слабых устройствах глушим фон-анимации */
+@media (prefers-reduced-motion: reduce) {
+  body::before { animation: none !important; opacity: 0.12; }
+  body::after { opacity: 0.02; }
+}
+
