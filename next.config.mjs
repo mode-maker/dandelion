@@ -2,15 +2,20 @@
 const nextConfig = {
   reactStrictMode: true,
 
-  // Заголовки для всех файлов из /public/events/*
+  images: {
+    remotePatterns: [
+      // Vercel Blob
+      { protocol: 'https', hostname: 'blob.vercel-storage.com' },
+      // Если у тебя есть ещё домены с картинками — добавь тут
+    ],
+  },
+
   async headers() {
     return [
       {
         source: "/events/:file*",
         headers: [
-          // Кэш на уровне CDN (s-maxage) — 1 год. В браузере max-age=0 (пусть решает CDN).
-        { key: "Cache-Control", value: "public, max-age=0, s-maxage=31536000, immutable" },
-          // Разрешим запросы диапазонов — корректная перемотка <video>.
+          { key: "Cache-Control", value: "public, max-age=0, s-maxage=31536000, immutable" },
           { key: "Accept-Ranges", value: "bytes" },
         ],
       },
