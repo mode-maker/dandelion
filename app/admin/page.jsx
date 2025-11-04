@@ -1,32 +1,19 @@
-// app/admin/page.tsx
+// app/admin/page.jsx
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Uploader from '@/components/admin/Uploader';
 
-type Photo = {
-  id: number;
-  album_id: number | null;
-  url: string;
-  width: number | null;
-  height: number | null;
-  title: string | null;
-  tags: string[] | null;
-  published: boolean;
-  sort_index: number | null;
-  created_at: string;
-};
-
 export default function AdminPage() {
-  const [items, setItems] = useState<Photo[]>([]);
+  const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [limit] = useState(60);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
-  const [albumId, setAlbumId] = useState<number | ''>('');
-  const [published, setPublished] = useState<'all'|'true'|'false'>('all');
+  const [albumId, setAlbumId] = useState('');
+  const [published, setPublished] = useState('all');
 
   const load = useCallback(async (reset = false) => {
     setLoading(true);
@@ -47,10 +34,9 @@ export default function AdminPage() {
   useEffect(() => { load(true); }, [albumId, q, published]); // перезагрузка при смене фильтров
 
   // Виртуализация по вертикали
-  const listRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef(null);
   const ITEM_H = 160;
   const GAP = 12;
-
   const [range, setRange] = useState({ start: 0, end: 0 });
 
   const onScroll = useCallback(() => {
@@ -64,18 +50,16 @@ export default function AdminPage() {
     const end = Math.min(items.length, start + visibleCount);
     setRange({ start, end });
 
-    // Догружать следующую страницу ближе к низу
     if (!loading && end > items.length - 10 && items.length < total) {
       load(false);
     }
   }, [items.length, loading, total, load]);
 
-  useEffect(() => { onScroll(); }, [items.length]); // пересчитать диапазон
+  useEffect(() => { onScroll(); }, [items.length]); // пересчёт диапазона
 
   const slice = useMemo(() => items.slice(range.start, range.end), [items, range]);
 
-  const updateMeta = useCallback(async (id: number, patch: Partial<Photo>) => {
-    // оптимистично
+  const updateMeta = useCallback(async (id, patch) => {
     setItems(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
     await fetch('/api/admin/photos', {
       method: 'PATCH',
@@ -84,7 +68,7 @@ export default function AdminPage() {
     }).catch(() => null);
   }, []);
 
-  const remove = useCallback(async (p: Photo) => {
+  const remove = useCallback(async (p) => {
     const ok = confirm('Удалить фото?');
     if (!ok) return;
     setItems(prev => prev.filter(x => x.id !== p.id));
@@ -99,7 +83,6 @@ export default function AdminPage() {
     <main className="min-h-screen px-4 md:px-8 py-6 bg-[#0e1712] text-[#E7E8E0]">
       <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Админ-панель · Галерея</h1>
 
-      {/* Панель фильтров + загрузка */}
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <div className="text-sm opacity-75 mb-2">Фильтры</div>
@@ -117,12 +100,11 @@ export default function AdminPage() {
                 onChange={(e) => setAlbumId(e.target.value ? Number(e.target.value) : '')}
               >
                 <option value="">Все альбомы</option>
-                {/* Если есть список альбомов — подставь сюда options */}
               </select>
               <select
                 className="px-3 py-2 rounded-xl bg-black/20 ring-1 ring-white/10"
                 value={published}
-                onChange={(e)=>setPublished(e.target.value as any)}
+                onChange={(e)=>setPublished(e.target.value)}
               >
                 <option value="all">Все</option>
                 <option value="true">Опублик.</option>
@@ -137,17 +119,14 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Список (виртуализированный контейнер) */}
       <div
         ref={listRef}
         onScroll={onScroll}
         className="mt-6 h-[70vh] overflow-y-auto rounded-2xl border border-white/10 bg-white/5 no-scrollbar"
       >
-        {/* Верхний спейсер */}
         <div style={{ height: (ITEM_H + GAP) * range.start }} />
 
         {slice.map((p, i) => {
-          const idx = range.start + i;
           const w = p.width || 1600;
           const h = p.height || 900;
           return (
@@ -176,7 +155,6 @@ export default function AdminPage() {
                   defaultValue={p.title || ''}
                   onBlur={(e)=>updateMeta(p.id, { title: e.target.value })}
                 />
-
                 <input
                   className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 outline-none"
                   placeholder="Теги (через запятую)"
@@ -211,12 +189,8 @@ export default function AdminPage() {
           );
         })}
 
-        {/* Нижний спейсер */}
         <div style={{ height: Math.max(0, (ITEM_H + GAP) * (items.length - range.end)) }} />
-
-        {loading ? (
-          <div className="py-6 text-center opacity-70">Загрузка…</div>
-        ) : null}
+        {loading ? <div className="py-6 text-center opacity-70">Загрузка…</div> : null}
       </div>
     </main>
   );
