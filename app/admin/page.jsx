@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import Uploader from '@/components/admin/Uploader';
+import Uploader from '../../components/admin/Uploader';
 
 export default function AdminPage() {
   const [items, setItems] = useState([]);
