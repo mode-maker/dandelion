@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import Uploader from '../../../components/admin/Uploader';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 function api(path) {
@@ -13,8 +12,8 @@ export default function AlbumPage({ params }) {
   const albumId = Number(params.id);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState(null); // id фото, над которым идёт операция
-  const [savingId, setSavingId] = useState(null); // id для сохранения title/published
+  const [busyId, setBusyId] = useState(null);
+  const [savingId, setSavingId] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -90,9 +89,9 @@ export default function AlbumPage({ params }) {
         </Link>
       </div>
 
-      {/* Загрузчик */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <Uploader albumId={albumId} onUploaded={load} />
+      {/* Подсказка о загрузке (временное решение) */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm opacity-80">
+        Загрузку новых фото пока оставили на общей странице галереи. Здесь — редактирование и порядок.
       </div>
 
       {/* Список фото */}
@@ -135,7 +134,7 @@ export default function AlbumPage({ params }) {
                   </div>
                 </div>
 
-                {/* Кнопки управления порядком */}
+                {/* Кнопки порядка и удаления */}
                 <div className="flex items-center gap-2">
                   <button
                     className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-40"
