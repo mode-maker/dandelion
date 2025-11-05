@@ -3,8 +3,11 @@ const nextConfig = {
   reactStrictMode: true,
 
   images: {
+    // Разрешаем ВСЕ поддомены Vercel Blob, в т.ч. public.*
     remotePatterns: [
-      { protocol: 'https', hostname: 'blob.vercel-storage.com' },
+      { protocol: 'https', hostname: '**.public.blob.vercel-storage.com' },
+      { protocol: 'https', hostname: '**.blob.vercel-storage.com' },
+      { protocol: 'https', hostname: 'blob.vercel-storage.com' }, // на всякий случай
     ],
   },
 
