@@ -17,16 +17,15 @@ export async function GET(req) {
     const limit = Math.min(100, Math.max(10, parseInt(searchParams.get('limit') || '30', 10)));
     const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
 
-    // WHERE (без тегов)
     const conds = [];
     if (albumId) conds.push(sql`album_id = ${Number(albumId)}`);
-    if (published === 'true')  conds.push(sql`published = TRUE`);
+    if (published === 'true') conds.push(sql`published = TRUE`);
     if (published === 'false') conds.push(sql`published = FALSE`);
     if (q) conds.push(sql`title ILIKE ${'%' + q + '%'}`);
     const where = conds.length ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``;
 
     const rowsRes = await sql/* sql */`
-      SELECT id, album_id, url, width, height, title, published, sort_index, created_at
+      SELECT id, album_id, url, width, height, title, published, created_at
         FROM photos
         ${where}
        ORDER BY created_at DESC, id DESC
@@ -47,21 +46,21 @@ export async function GET(req) {
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     console.error('GET /api/admin/photos failed:', e);
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    return NextResponse.json({ error: e.message || 'internal error' }, { status: 500 });
   }
 }
 
-// PATCH /api/admin/photos  body: { id, title?, published?, sort_index?, url? }
+// PATCH /api/admin/photos  body: { id, title?, published?, url? }
 export async function PATCH(req) {
   try {
     const body = await req.json();
-    if (!body || !body.id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+    if (!body || !body.id)
+      return NextResponse.json({ error: 'id required' }, { status: 400 });
 
     const sets = [];
-    if ('title' in body)      sets.push(sql`title = ${body.title}`);
-    if ('published' in body)  sets.push(sql`published = ${!!body.published}`);
-    if ('sort_index' in body) sets.push(sql`sort_index = ${body.sort_index}`);
-    if ('url' in body)        sets.push(sql`url = ${body.url}`);
+    if ('title' in body) sets.push(sql`title = ${body.title}`);
+    if ('published' in body) sets.push(sql`published = ${!!body.published}`);
+    if ('url' in body) sets.push(sql`url = ${body.url}`);
 
     if (!sets.length) return NextResponse.json({ ok: true });
 
@@ -74,7 +73,7 @@ export async function PATCH(req) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('PATCH /api/admin/photos failed:', e);
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    return NextResponse.json({ error: e.message || 'internal error' }, { status: 500 });
   }
 }
 
@@ -82,16 +81,20 @@ export async function PATCH(req) {
 export async function DELETE(req) {
   try {
     const body = await req.json().catch(() => null);
-    if (!body?.id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+    if (!body?.id)
+      return NextResponse.json({ error: 'id required' }, { status: 400 });
 
     await sql/* sql */`DELETE FROM photos WHERE id = ${body.id};`;
 
     if (body.url && typeof body.url === 'string') {
-      try { await blobDel(body.url); } catch {}
+      try { await blobDel(body.url); } catch (err) {
+        console.warn('blob delete failed:', err);
+      }
     }
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('DELETE /api/admin/photos failed:', e);
-    return NextResponse.json({ error: String(e?.message || e) }, { status: 500 });
+    return NextResponse.json({ error: e.message || 'internal error' }, { status: 500 });
   }
 }
