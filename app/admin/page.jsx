@@ -28,9 +28,13 @@ export default function AdminPage() {
 
     try {
       const r = await fetch(`/api/admin/photos?${params.toString()}`, { cache: 'no-store' });
-      if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
-      const data = await r.json();
-
+      const isJson = r.headers.get('content-type')?.includes('application/json');
+      const body = isJson ? await r.json().catch(() => ({})) : await r.text();
+      if (!r.ok) {
+        const msg = isJson ? (body?.error || `HTTP ${r.status}`) : `HTTP ${r.status}: ${body}`;
+        throw new Error(msg);
+      }
+      const data = isJson ? body : {};
       const nextItems = Array.isArray(data.items) ? data.items : [];
       setItems(reset ? nextItems : [...items, ...nextItems]);
       setTotal(Number(data.total || 0));
@@ -43,9 +47,8 @@ export default function AdminPage() {
     }
   }, [albumId, q, published, limit, offset, items]);
 
-  useEffect(() => { load(true); }, [albumId, q, published]); // перезагрузка при смене фильтров
+  useEffect(() => { load(true); }, [albumId, q, published]);
 
-  // Простая вертикальная виртуализация
   const listRef = useRef(null);
   const ITEM_H = 160;
   const GAP = 12;
@@ -54,20 +57,17 @@ export default function AdminPage() {
   const onScroll = useCallback(() => {
     const el = listRef.current;
     if (!el) return;
-    const scrollTop = el.scrollTop;
-    const vh = el.clientHeight;
     const per = ITEM_H + GAP;
-    const start = Math.max(0, Math.floor(scrollTop / per) - 5);
-    const visibleCount = Math.ceil(vh / per) + 10;
+    const start = Math.max(0, Math.floor(el.scrollTop / per) - 5);
+    const visibleCount = Math.ceil(el.clientHeight / per) + 10;
     const end = Math.min(items.length, start + visibleCount);
     setRange({ start, end });
-
     if (!loading && end > items.length - 10 && items.length < total) {
       load(false);
     }
   }, [items.length, loading, total, load]);
 
-  useEffect(() => { onScroll(); }, [items.length]); // пересчёт диапазона
+  useEffect(() => { onScroll(); }, [items.length]);
 
   const slice = useMemo(() => items.slice(range.start, range.end), [items, range]);
 
@@ -79,14 +79,11 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...patch }),
       });
-    } catch (e) {
-      console.error('PATCH failed:', e);
-    }
+    } catch (e) { console.error('PATCH failed:', e); }
   }, []);
 
   const remove = useCallback(async (p) => {
-    const ok = confirm('Удалить фото?');
-    if (!ok) return;
+    if (!confirm('Удалить фото?')) return;
     setItems(prev => prev.filter(x => x.id !== p.id));
     try {
       await fetch('/api/admin/photos', {
@@ -94,9 +91,7 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: p.id, url: p.url }),
       });
-    } catch (e) {
-      console.error('DELETE failed:', e);
-    }
+    } catch (e) { console.error('DELETE failed:', e); }
   }, []);
 
   return (
@@ -135,7 +130,7 @@ export default function AdminPage() {
         </div>
 
         <div className="md:col-span-2">
-          <Uploader albumId={albumId === '' ? null : albumId} onUploaded={() => load(true)} />
+          <Uploader onUploaded={() => load(true)} />
         </div>
       </div>
 
@@ -150,11 +145,9 @@ export default function AdminPage() {
           const w = p.width || 1600;
           const h = p.height || 900;
           return (
-            <div
-              key={p.id}
+            <div key={p.id}
               className="mx-3 my-[6px] flex items-center gap-4 p-3 rounded-xl bg-black/10 ring-1 ring-white/5 shadow-md hover:shadow-lg transition-shadow"
-              style={{ height: ITEM_H }}
-            >
+              style={{ height: ITEM_H }}>
               <div className="relative w-48 h-[136px] rounded-lg overflow-hidden ring-1 ring-white/10">
                 <Image
                   src={p.url}
@@ -168,7 +161,6 @@ export default function AdminPage() {
                   unoptimized
                 />
               </div>
-
               <div className="flex-1 min-w-0">
                 <input
                   className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 outline-none mb-2"
@@ -177,7 +169,6 @@ export default function AdminPage() {
                   onBlur={(e)=>updateMeta(p.id, { title: e.target.value })}
                 />
               </div>
-
               <div className="flex flex-col items-end gap-2">
                 <label className="inline-flex items-center gap-2 text-sm">
                   <input
