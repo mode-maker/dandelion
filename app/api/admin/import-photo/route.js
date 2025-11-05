@@ -7,13 +7,27 @@ import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 
 export async function POST(req) {
-  const { albumId, url } = await req.json().catch(() => ({}));
-  if (!url) return NextResponse.json({ error: 'url required' }, { status: 400 });
+  try {
+    const { albumId, url, width, height, title, tags } = await req.json().catch(() => ({}));
+    if (!url) return NextResponse.json({ error: 'url required' }, { status: 400 });
 
-  await sql/* sql */`
-    INSERT INTO photos (album_id, url, published)
-    VALUES (${albumId ? Number(albumId) : null}, ${url}, TRUE)
-  `;
+    await sql`
+      INSERT INTO photos (album_id, url, width, height, title, tags, published, created_at)
+      VALUES (
+        ${albumId ? Number(albumId) : null},
+        ${url},
+        ${width ?? null},
+        ${height ?? null},
+        ${title ?? null},
+        ${tags ?? null},
+        TRUE,
+        NOW()
+      );
+    `;
 
-  return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error('POST /api/admin/import-photo failed:', e);
+    return NextResponse.json({ error: 'failed' }, { status: 500 });
+  }
 }
