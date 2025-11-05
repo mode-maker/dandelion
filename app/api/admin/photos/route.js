@@ -1,4 +1,3 @@
-// app/api/admin/photos/route.js
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -17,31 +16,37 @@ export async function GET(req) {
     const limit = Math.min(100, Math.max(10, parseInt(searchParams.get('limit') || '30', 10)));
     const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
 
-    // тестовое подключение
-    await sql`SELECT 1`;
-
-    const conds = [];
-    if (albumId) conds.push(sql`album_id = ${Number(albumId)}`);
-    if (published === 'true') conds.push(sql`published = TRUE`);
-    if (published === 'false') conds.push(sql`published = FALSE`);
-    if (q) conds.push(sql`title ILIKE ${'%' + q + '%'}`);
-
-    // если conds пустой — просто ничего не вставляем
-    const whereSql = conds.length ? sql`WHERE ${sql.join(conds, sql` AND `)}` : sql``;
-
-    const rowsRes = await sql`
+    // Базовый SQL без условий
+    let query = `
       SELECT id, album_id, url, width, height, title, published, created_at
       FROM photos
-      ${whereSql}
-      ORDER BY COALESCE(created_at, NOW()) DESC, id DESC
-      LIMIT ${limit} OFFSET ${offset};
     `;
+    let countQuery = `SELECT COUNT(*)::int AS c FROM photos`;
+    const conds = [];
+    const values = [];
 
-    const countRes = await sql`
-      SELECT COUNT(*)::int AS c
-      FROM photos
-      ${whereSql};
-    `;
+    // Формируем условия вручную (без sql`` шаблонов)
+    if (albumId) {
+      conds.push(`album_id = $${conds.length + 1}`);
+      values.push(Number(albumId));
+    }
+    if (published === 'true') conds.push(`published = TRUE`);
+    if (published === 'false') conds.push(`published = FALSE`);
+    if (q) {
+      conds.push(`title ILIKE $${conds.length + 1}`);
+      values.push(`%${q}%`);
+    }
+
+    if (conds.length > 0) {
+      const whereClause = ' WHERE ' + conds.join(' AND ');
+      query += whereClause;
+      countQuery += whereClause;
+    }
+
+    query += ` ORDER BY COALESCE(created_at, NOW()) DESC, id DESC LIMIT ${limit} OFFSET ${offset}`;
+
+    const rowsRes = await sql.query(query, values);
+    const countRes = await sql.query(countQuery, values);
 
     return NextResponse.json({
       items: rowsRes.rows,
@@ -62,17 +67,27 @@ export async function PATCH(req) {
     if (!body?.id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 
     const sets = [];
-    if ('title' in body) sets.push(sql`title = ${body.title}`);
-    if ('published' in body) sets.push(sql`published = ${!!body.published}`);
-    if ('url' in body) sets.push(sql`url = ${body.url}`);
+    const values = [];
+    let i = 1;
+
+    if ('title' in body) {
+      sets.push(`title = $${i++}`);
+      values.push(body.title);
+    }
+    if ('published' in body) {
+      sets.push(`published = $${i++}`);
+      values.push(!!body.published);
+    }
+    if ('url' in body) {
+      sets.push(`url = $${i++}`);
+      values.push(body.url);
+    }
 
     if (!sets.length) return NextResponse.json({ ok: true });
 
-    await sql`
-      UPDATE photos
-      SET ${sql.join(sets, sql`, `)}
-      WHERE id = ${body.id};
-    `;
+    values.push(body.id);
+    const query = `UPDATE photos SET ${sets.join(', ')} WHERE id = $${i}`;
+    await sql.query(query, values);
 
     return NextResponse.json({ ok: true });
   } catch (e) {
@@ -87,7 +102,7 @@ export async function DELETE(req) {
     const body = await req.json().catch(() => null);
     if (!body?.id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 
-    await sql`DELETE FROM photos WHERE id = ${body.id};`;
+    await sql.query(`DELETE FROM photos WHERE id = $1`, [body.id]);
 
     if (body.url && typeof body.url === 'string') {
       try {
