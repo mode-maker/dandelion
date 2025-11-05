@@ -3,13 +3,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import Uploader from '../../../components/admin/Uploader';
+
+const UPLOAD_URL = '/api/admin/upload'; // если у вас другой путь — поменяйте здесь
 
 export default function AdminAlbumPage({ params }) {
   const albumId = Number(params.id);
   const [album, setAlbum] = useState(null);
   const [items, setItems] = useState([]);
   const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
   const dragFrom = useRef(null);
 
   const load = useCallback(async () => {
@@ -24,7 +26,6 @@ export default function AdminAlbumPage({ params }) {
       if (!pR.ok) throw new Error(p?.error || 'photos load error');
       setAlbum(a.album);
       const arr = Array.isArray(p.items) ? p.items : [];
-      // нормализуем sort_index (по порядку)
       setItems(arr.map((x, i) => ({ ...x, sort_index: i })));
     } catch (e) { setErr(String(e.message || e)); }
   }, [albumId]);
@@ -42,9 +43,7 @@ export default function AdminAlbumPage({ params }) {
       const a = [...items];
       const [moved] = a.splice(from, 1);
       a.splice(idx, 0, moved);
-      // перенумеруем sort_index
-      const withOrder = a.map((it, i) => ({ ...it, sort_index: i }));
-      setItems(withOrder);
+      setItems(a.map((it, i) => ({ ...it, sort_index: i })));
       dragFrom.current = null;
     };
   }
@@ -95,6 +94,27 @@ export default function AdminAlbumPage({ params }) {
     } catch (e) { alert('Не удалось переименовать: ' + e.message); }
   }
 
+  // простой аплоадер (мульти-файл). сервер ждёт form-data: files[], albumId
+  async function onUpload(e) {
+    const files = e.target.files;
+    if (!files?.length) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f);
+      fd.append('albumId', String(albumId));
+      const r = await fetch(UPLOAD_URL, { method: 'POST', body: fd });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+      await load();
+      e.target.value = '';
+    } catch (e2) {
+      alert('Загрузка не удалась: ' + (e2.message || e2));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="min-h-screen px-4 md:px-8 py-6 bg-[#0e1712] text-[#E7E8E0]">
       <div className="flex items-center gap-3">
@@ -113,15 +133,19 @@ export default function AdminAlbumPage({ params }) {
         </div>
       ) : null}
 
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <Uploader albumId={albumId} onUploaded={load} />
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between">
+        <div className="text-sm opacity-75">Загрузка изображений в этот альбом</div>
+        <label className="px-4 py-2 rounded-xl bg-white/10 ring-1 ring-white/10 hover:bg-white/15 cursor-pointer">
+          {busy ? 'Загрузка…' : 'Выбрать файлы'}
+          <input type="file" multiple accept="image/*" onChange={onUpload} className="hidden" />
+        </label>
       </div>
 
       {err && <div className="text-red-300 mt-4">{err}</div>}
 
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
         <div className="flex items-center justify-between mb-3">
-          <div className="text-sm opacity-75">Фотографии (перетащи, чтобы изменить порядок)</div>
+          <div className="text-sm opacity-75">Фотографии (перетащи для изменения порядка)</div>
           <button onClick={saveOrder} className="px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 hover:bg-white/15">
             Сохранить порядок
           </button>
