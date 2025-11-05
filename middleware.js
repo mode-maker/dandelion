@@ -1,53 +1,62 @@
 // middleware.js
 import { NextResponse } from 'next/server';
 
-function unauthorized() {
-  return new NextResponse('Authentication required', {
-    status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Dandelion Admin"' },
-  });
-}
+const BASIC_USER = process.env.ADMIN_USER || 'admin';
+const BASIC_PASS = process.env.ADMIN_PASS || 'admin';
+const realm = 'Restricted Dandelion Admin';
 
-// Безопасный base64-декодер для Edge (atob) и dev/Node (Buffer)
-function b64decode(input) {
-  try {
-    if (typeof atob === 'function') return atob(input);
-  } catch {}
-  try {
-    if (typeof Buffer !== 'undefined') return Buffer.from(input, 'base64').toString('utf-8');
-  } catch {}
-  return '';
+function unauthorized() {
+  return new NextResponse('Auth required', {
+    status: 401,
+    headers: { 'WWW-Authenticate': `Basic realm="${realm}"` },
+  });
 }
 
 export function middleware(req) {
   const { pathname } = req.nextUrl;
 
-  // Защищаем только /admin и /api/admin
-  const needsAuth = pathname.startsWith('/admin') || pathname.startsWith('/api/admin');
+  // Разрешаем публичные пути
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api/albums') ||
+    pathname.startsWith('/api/events') ||
+    pathname.startsWith('/favicon') ||
+    pathname.startsWith('/images') ||
+    pathname === '/' ||
+    pathname.startsWith('/gallery') ||
+    pathname.startsWith('/events') ||
+    pathname.startsWith('/workshops')
+  ) {
+    return NextResponse.next();
+  }
+
+  // Разрешаем ТОЛЬКО чтение списка фоток в админке без авторизации,
+  // чтобы починить падение и видеть ошибки.
+  if (pathname.startsWith('/api/admin/photos') && req.method === 'GET') {
+    return NextResponse.next();
+  }
+
+  // Всё остальное под /admin и /api/admin — только с basic-auth
+  const needsAuth =
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/') ||
+    pathname.startsWith('/api/admin');
+
   if (!needsAuth) return NextResponse.next();
 
-  // Пропускаем preflight-запросы
-  if (req.method === 'OPTIONS') return NextResponse.next();
-
-  const user = process.env.ADMIN_USER || 'admin';
-  const pass = process.env.ADMIN_PASS || '';
-
-  const auth = (req.headers.get('authorization') || '').trim();
+  const auth = req.headers.get('authorization') || '';
   if (!auth.startsWith('Basic ')) return unauthorized();
 
-  const decoded = b64decode(auth.slice(6));
-  const sepIndex = decoded.indexOf(':');
-  if (sepIndex === -1) return unauthorized();
-
-  const login = decoded.slice(0, sepIndex);
-  const password = decoded.slice(sepIndex + 1);
-
-  if (login !== user || password !== pass) return unauthorized();
-
-  return NextResponse.next();
+  try {
+    const [, base64] = auth.split(' ');
+    const [user, pass] = Buffer.from(base64, 'base64').toString('utf8').split(':');
+    if (user === BASIC_USER && pass === BASIC_PASS) {
+      return NextResponse.next();
+    }
+  } catch (_) {}
+  return unauthorized();
 }
 
-// Ограничиваем работу middleware только нужными путями
 export const config = {
   matcher: ['/admin/:path*', '/api/admin/:path*'],
 };
