@@ -1,83 +1,100 @@
 // components/admin/Uploader.jsx
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { put } from '@vercel/blob';
 
-export default function Uploader({ albumId, onUploaded }) {
-  const [files, setFiles] = useState([]);
+const BLOB_TOKEN = process.env.NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN; // важно
+
+export default function Uploader({ albumId = null, onUploaded }) {
+  const [queue, setQueue] = useState([]);
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const inputRef = useRef(null);
+  const progressRef = useRef(0);
 
-  const onPick = useCallback(e => {
-    const list = e.target.files;
-    if (!list) return;
-    const arr = Array.from(list).filter(f => f.type.startsWith('image/'));
-    setFiles(arr);
-  }, []);
+  async function handleFiles(files) {
+    setQueue(Array.from(files));
+  }
 
-  const startUpload = useCallback(async () => {
-    if (!files.length || busy) return;
+  async function uploadAll() {
+    if (!queue.length) return;
+    if (!BLOB_TOKEN) {
+      alert('Нет токена для Vercel Blob. Добавь NEXT_PUBLIC_BLOB_READ_WRITE_TOKEN в переменные окружения.');
+      return;
+    }
     setBusy(true);
-    setProgress(0);
+    try {
+      for (let i = 0; i < queue.length; i++) {
+        const f = queue[i];
 
-    const MAX_PARALLEL = 3;
-    let done = 0;
-    const bump = () => setProgress(Math.round(((++done) / files.length) * 100));
-    const queue = [...files];
-
-    async function worker() {
-      while (queue.length) {
-        const f = queue.shift();
-
-        // без client-side ресайза, чтобы быстрее завести (можем добавить позже)
+        // загрузка в Blob с токеном
         const res = await put(`dandelion/${Date.now()}-${f.name}`, f, {
           access: 'public',
-          contentType: f.type,
+          contentType: f.type || 'application/octet-stream',
           addRandomSuffix: true,
+          token: BLOB_TOKEN, // <-- ключ
         });
 
+        // регистрируем фото в БД
         await fetch('/api/admin/import-photo', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ albumId, url: res.url }),
+          body: JSON.stringify({
+            albumId,
+            url: res.url,
+            width: null,
+            height: null,
+            title: '',
+          }),
         });
 
-        bump();
+        progressRef.current = Math.round(((i + 1) / queue.length) * 100);
       }
+      setQueue([]);
+      onUploaded?.();
+    } catch (e) {
+      console.error('upload failed', e);
+      alert('Ошибка загрузки: ' + (e?.message || e));
+    } finally {
+      setBusy(false);
+      progressRef.current = 0;
     }
-
-    await Promise.all(Array.from({ length: MAX_PARALLEL }, () => worker()));
-    setBusy(false);
-    setFiles([]);
-    onUploaded?.();
-  }, [files, busy, albumId, onUploaded]);
+  }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 md:p-5">
-      <div className="flex flex-col md:flex-row items-start md:items-center gap-3 justify-between">
-        <div className="space-y-1">
-          <div className="font-medium">Загрузка изображений</div>
-          <div className="text-sm opacity-70">Файлы отправятся в Vercel Blob</div>
-        </div>
-        <div className="flex items-center gap-3">
-          <input ref={inputRef} type="file" accept="image/*" multiple onChange={onPick} className="hidden" />
-          <button className="px-3 py-1.5 rounded-xl bg-[#556B5A] text-white hover:bg-[#495e50] transition-colors" onClick={() => inputRef.current?.click()} disabled={busy}>
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-medium">Загрузка изображений</div>
+        <div className="flex items-center gap-2">
+          <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 ring-1 ring-white/10 hover:bg-white/15 cursor-pointer">
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => handleFiles(e.target.files)}
+            />
             Выбрать файлы
-          </button>
-          <button className="px-3 py-1.5 rounded-xl bg-white/10 text-white ring-1 ring-white/10 hover:bg-white/15 transition-colors disabled:opacity-50" onClick={startUpload} disabled={!files.length || busy}>
-            Загрузить {files.length ? `(${files.length})` : ''}
+          </label>
+          <button
+            className="px-3 py-1.5 rounded-xl bg-white/10 ring-1 ring-white/10 disabled:opacity-50"
+            disabled={!queue.length || busy}
+            onClick={uploadAll}
+          >
+            Загрузить ({queue.length || 0})
           </button>
         </div>
       </div>
 
+      <div className="mt-3 text-sm opacity-70">
+        Файлы отправятся в Vercel Blob
+      </div>
+
       {busy ? (
-        <div className="mt-4">
-          <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-            <div className="h-full bg-[#556B5A] transition-all" style={{ width: `${progress}%` }} />
-          </div>
-          <div className="mt-1 text-sm opacity-70">Отправка: {progress}%</div>
+        <div className="mt-2 h-2 rounded bg-black/20 overflow-hidden">
+          <div
+            className="h-2 bg-white/50 transition-all"
+            style={{ width: `${progressRef.current}%` }}
+          />
         </div>
       ) : null}
     </div>
