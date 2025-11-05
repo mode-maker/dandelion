@@ -7,50 +7,42 @@ import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 
 /**
- * POST /api/admin/photos/reorder
- * body: { id: number, direction: 'up' | 'down' }
- * Меняет местами sort_index текущей фотографии и её соседа в пределах альбома.
+ * POST body: { currentId: number, neighborId: number }
+ * Меняет местами sort_index у двух фотографий в рамках одного альбома.
  */
 export async function POST(req) {
   try {
-    const { id, direction } = await req.json();
-
-    if (!id || !['up', 'down'].includes(direction)) {
-      return NextResponse.json({ error: 'id and direction required' }, { status: 400 });
+    const { currentId, neighborId } = await req.json();
+    if (!currentId || !neighborId) {
+      return NextResponse.json({ error: 'currentId and neighborId required' }, { status: 400 });
     }
 
-    // Текущая фотка
-    const curRes = await sql`
+    // Получаем текущие индексы и альбом
+    const { rows } = await sql`
       SELECT id, album_id, sort_index
       FROM photos
-      WHERE id = ${id}
-      LIMIT 1;
+      WHERE id = ANY(${[currentId, neighborId]})
+      ORDER BY id ASC
     `;
-    const cur = curRes.rows[0];
-    if (!cur) return NextResponse.json({ error: 'photo not found' }, { status: 404 });
-
-    // Сосед сверху/снизу
-    const neighRes = await sql`
-      SELECT id, sort_index
-      FROM photos
-      WHERE album_id = ${cur.album_id}
-        AND ${direction === 'up'
-            ? sql`sort_index < ${cur.sort_index}`
-            : sql`sort_index > ${cur.sort_index}`}
-      ORDER BY sort_index ${direction === 'up' ? sql`DESC` : sql`ASC`}
-      LIMIT 1;
-    `;
-    const neigh = neighRes.rows[0];
-    if (!neigh) {
-      // уже крайняя — ничего не делаем
-      return NextResponse.json({ ok: true, edge: true });
+    if (rows.length !== 2) {
+      return NextResponse.json({ error: 'photos not found' }, { status: 404 });
+    }
+    const a = rows.find(r => r.id === currentId);
+    const b = rows.find(r => r.id === neighborId);
+    if (!a || !b) return NextResponse.json({ error: 'photos not found' }, { status: 404 });
+    if (a.album_id !== b.album_id) {
+      return NextResponse.json({ error: 'must be same album' }, { status: 400 });
     }
 
-    // 3 шага, чтобы исключить коллизии значений
-    const TMP = -99999999; // временное значение
-    await sql`UPDATE photos SET sort_index = ${TMP} WHERE id = ${cur.id};`;
-    await sql`UPDATE photos SET sort_index = ${cur.sort_index} WHERE id = ${neigh.id};`;
-    await sql`UPDATE photos SET sort_index = ${neigh.sort_index} WHERE id = ${cur.id};`;
+    // Атомарно меняем местами
+    await sql`
+      UPDATE photos p
+      SET sort_index = CASE
+        WHEN p.id = ${a.id} THEN ${b.sort_index}
+        WHEN p.id = ${b.id} THEN ${a.sort_index}
+      END
+      WHERE p.id = ANY(${[a.id, b.id]})
+    `;
 
     return NextResponse.json({ ok: true });
   } catch (e) {
