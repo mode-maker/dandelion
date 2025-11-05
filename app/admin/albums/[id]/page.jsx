@@ -1,192 +1,171 @@
-// app/admin/albums/[id]/page.jsx
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
+import { useEffect, useMemo, useState } from 'react';
+import Uploader from '../../../components/admin/Uploader';
+import Link from 'next/link';
 
-const UPLOAD_URL = '/api/admin/upload'; // если у вас другой путь — поменяйте здесь
+function api(path) {
+  const base = (process.env.NEXT_PUBLIC_API_BASE || '').replace(/\/+$/, '');
+  return base ? `${base}${path}` : path;
+}
 
-export default function AdminAlbumPage({ params }) {
+export default function AlbumPage({ params }) {
   const albumId = Number(params.id);
-  const [album, setAlbum] = useState(null);
   const [items, setItems] = useState([]);
-  const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
-  const dragFrom = useRef(null);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null); // id фото, над которым идёт операция
+  const [savingId, setSavingId] = useState(null); // id для сохранения title/published
 
-  const load = useCallback(async () => {
+  async function load() {
+    setLoading(true);
     try {
-      setErr('');
-      const [aR, pR] = await Promise.all([
-        fetch(`/api/admin/albums/${albumId}`, { cache: 'no-store' }),
-        fetch(`/api/admin/albums/${albumId}/photos`, { cache: 'no-store' }),
-      ]);
-      const a = await aR.json(); const p = await pR.json();
-      if (!aR.ok) throw new Error(a?.error || 'album load error');
-      if (!pR.ok) throw new Error(p?.error || 'photos load error');
-      setAlbum(a.album);
-      const arr = Array.isArray(p.items) ? p.items : [];
-      setItems(arr.map((x, i) => ({ ...x, sort_index: i })));
-    } catch (e) { setErr(String(e.message || e)); }
-  }, [albumId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  // drag & drop
-  function onDragStart(idx) { return () => (dragFrom.current = idx); }
-  function onDragOver(e) { e.preventDefault(); }
-  function onDrop(idx) {
-    return (e) => {
-      e.preventDefault();
-      const from = dragFrom.current;
-      if (from == null || from === idx) return;
-      const a = [...items];
-      const [moved] = a.splice(from, 1);
-      a.splice(idx, 0, moved);
-      setItems(a.map((it, i) => ({ ...it, sort_index: i })));
-      dragFrom.current = null;
-    };
+      const r = await fetch(api(`/api/admin/photos?albumId=${albumId}&limit=1000&offset=0`), { cache: 'no-store' });
+      const j = await r.json();
+      setItems(j.items || []);
+    } catch (e) {
+      console.error('Photos load failed:', e);
+      alert('Не удалось загрузить фото: ' + (e?.message || String(e)));
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function saveOrder() {
-    try {
-      const order = items.map(it => ({ id: it.id, sort_index: it.sort_index }));
-      const r = await fetch(`/api/admin/albums/${albumId}/photos`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order }),
-      });
-      if (!r.ok) {
-        const t = await r.json().catch(() => ({}));
-        throw new Error(t?.error || `HTTP ${r.status}`);
-      }
-      alert('Порядок сохранён ✅');
-    } catch (e) { alert('Не удалось сохранить порядок: ' + e.message); }
-  }
+  useEffect(() => { load(); }, [albumId]);
 
-  async function updateOne(id, patch) {
+  async function saveField(id, patch) {
     try {
-      setItems(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
-      await fetch('/api/admin/photos', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      setSavingId(id);
+      await fetch(api('/api/admin/photos'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...patch }),
       });
-    } catch (e) { console.error(e); }
-  }
-
-  async function removeOne(p) {
-    if (!confirm('Удалить фото?')) return;
-    setItems(prev => prev.filter(x => x.id !== p.id));
-    try {
-      await fetch('/api/admin/photos', {
-        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: p.id, url: p.url }),
-      });
-    } catch (e) { console.error(e); }
-  }
-
-  async function renameAlbum(newTitle) {
-    try {
-      await fetch(`/api/admin/albums/${albumId}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTitle }),
-      });
-      setAlbum(a => ({ ...a, title: newTitle }));
-    } catch (e) { alert('Не удалось переименовать: ' + e.message); }
-  }
-
-  // простой аплоадер (мульти-файл). сервер ждёт form-data: files[], albumId
-  async function onUpload(e) {
-    const files = e.target.files;
-    if (!files?.length) return;
-    setBusy(true);
-    try {
-      const fd = new FormData();
-      for (const f of files) fd.append('files', f);
-      fd.append('albumId', String(albumId));
-      const r = await fetch(UPLOAD_URL, { method: 'POST', body: fd });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
       await load();
-      e.target.value = '';
-    } catch (e2) {
-      alert('Загрузка не удалась: ' + (e2.message || e2));
+    } catch (e) {
+      alert('Ошибка сохранения: ' + (e?.message || String(e)));
     } finally {
-      setBusy(false);
+      setSavingId(null);
+    }
+  }
+
+  async function remove(id, url) {
+    if (!confirm('Удалить фото?')) return;
+    try {
+      setBusyId(id);
+      await fetch(api('/api/admin/photos'), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, url }),
+      });
+      await load();
+    } catch (e) {
+      alert('Ошибка удаления: ' + (e?.message || String(e)));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function move(id, dir) {
+    try {
+      setBusyId(id);
+      await fetch(api('/api/admin/photos/reorder'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, direction: dir }),
+      });
+      await load();
+    } catch (e) {
+      alert('Ошибка изменения порядка: ' + (e?.message || String(e)));
+    } finally {
+      setBusyId(null);
     }
   }
 
   return (
-    <main className="min-h-screen px-4 md:px-8 py-6 bg-[#0e1712] text-[#E7E8E0]">
-      <div className="flex items-center gap-3">
-        <a href="/admin" className="opacity-70 hover:opacity-100">← к альбомам</a>
-        <h1 className="text-2xl md:text-3xl font-semibold">Альбом</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="text-xl font-semibold">Альбом #{albumId}</div>
+        <Link href="/admin/galleries" className="text-sm opacity-70 hover:opacity-100 underline">
+          ← Назад к галереям
+        </Link>
       </div>
 
-      {album ? (
-        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center gap-3">
-          <input
-            className="flex-1 px-3 py-2 rounded-xl bg-black/20 ring-1 ring-white/10 outline-none"
-            defaultValue={album.title}
-            onBlur={(e)=>renameAlbum(e.target.value)}
-          />
-          <span className="opacity-70 text-sm">{new Date(album.created_at).toLocaleString('ru-RU')}</span>
-        </div>
-      ) : null}
-
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 flex items-center justify-between">
-        <div className="text-sm opacity-75">Загрузка изображений в этот альбом</div>
-        <label className="px-4 py-2 rounded-xl bg-white/10 ring-1 ring-white/10 hover:bg-white/15 cursor-pointer">
-          {busy ? 'Загрузка…' : 'Выбрать файлы'}
-          <input type="file" multiple accept="image/*" onChange={onUpload} className="hidden" />
-        </label>
+      {/* Загрузчик */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <Uploader albumId={albumId} onUploaded={load} />
       </div>
 
-      {err && <div className="text-red-300 mt-4">{err}</div>}
-
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-sm opacity-75">Фотографии (перетащи для изменения порядка)</div>
-          <button onClick={saveOrder} className="px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 hover:bg-white/15">
-            Сохранить порядок
-          </button>
-        </div>
-
-        <ul className="grid md:grid-cols-2 gap-3">
-          {items.map((p, idx) => (
-            <li
-              key={p.id}
-              draggable
-              onDragStart={onDragStart(idx)}
-              onDragOver={onDragOver}
-              onDrop={onDrop(idx)}
-              className="p-3 rounded-xl ring-1 ring-white/10 bg-black/10 flex gap-3 items-center"
-            >
-              <div className="relative w-40 h-24 rounded-lg overflow-hidden ring-1 ring-white/10 shrink-0">
-                <Image src={p.url} alt={p.title || ''} fill className="object-cover" sizes="160px" unoptimized />
-              </div>
-              <div className="flex-1 min-w-0">
-                <input
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 outline-none mb-2"
-                  placeholder="Название / подпись"
-                  defaultValue={p.title || ''}
-                  onBlur={(e)=>updateOne(p.id, { title: e.target.value })}
+      {/* Список фото */}
+      <div className="rounded-2xl border border-white/10">
+        {loading ? (
+          <div className="p-6 opacity-70">Загрузка…</div>
+        ) : !items.length ? (
+          <div className="p-6 opacity-70">Пока нет фотографий</div>
+        ) : (
+          <ul className="divide-y divide-white/10">
+            {items.map((p, idx) => (
+              <li key={p.id} className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:gap-4 items-start sm:items-center">
+                <img
+                  src={p.url}
+                  alt=""
+                  className="w-28 h-20 object-cover rounded-xl border border-white/10"
                 />
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input type="checkbox" defaultChecked={p.published}
-                         onChange={(e)=>updateOne(p.id, { published: e.target.checked })}/>
-                  Опубликовано
-                </label>
-              </div>
-              <button onClick={()=>removeOne(p)}
-                      className="px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 hover:bg-white/15">
-                Удалить
-              </button>
-            </li>
-          ))}
-        </ul>
 
-        {!items.length ? <div className="opacity-70">Фотографий пока нет</div> : null}
+                <div className="flex-1 w-full">
+                  <input
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 outline-none"
+                    placeholder="Название / подпись"
+                    defaultValue={p.title || ''}
+                    onBlur={(e) => {
+                      const v = e.target.value;
+                      if (v !== (p.title || '')) saveField(p.id, { title: v });
+                    }}
+                  />
+                  <div className="mt-2 flex items-center gap-4 text-sm opacity-80">
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        defaultChecked={!!p.published}
+                        onChange={(e) => saveField(p.id, { published: e.target.checked })}
+                      />
+                      Опубликовано
+                    </label>
+                    <span>Порядок: {p.sort_index}</span>
+                    {savingId === p.id && <span>· сохранение…</span>}
+                  </div>
+                </div>
+
+                {/* Кнопки управления порядком */}
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-40"
+                    onClick={() => move(p.id, 'up')}
+                    disabled={busyId === p.id || idx === 0}
+                    title="Вверх"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-40"
+                    onClick={() => move(p.id, 'down')}
+                    disabled={busyId === p.id || idx === items.length - 1}
+                    title="Вниз"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="px-3 py-2 rounded-lg border border-red-500/40 bg-red-500/10 hover:bg-red-500/20 disabled:opacity-40"
+                    onClick={() => remove(p.id, p.url)}
+                    disabled={busyId === p.id}
+                  >
+                    Удалить
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-    </main>
+    </div>
   );
 }
