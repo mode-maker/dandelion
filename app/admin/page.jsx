@@ -1,208 +1,84 @@
 // app/admin/page.jsx
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Image from 'next/image';
-import Uploader from '../../components/admin/Uploader';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
-export default function AdminPage() {
-  const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [limit] = useState(60);
-  const [offset, setOffset] = useState(0);
+export default function AdminAlbums() {
+  const [albums, setAlbums] = useState([]);
+  const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [q, setQ] = useState('');
-  const [albumId, setAlbumId] = useState('');
-  const [published, setPublished] = useState('all');
+  const [err, setErr] = useState('');
 
-  const load = useCallback(async (reset = false) => {
-    setLoading(true);
-    setError('');
-    const params = new URLSearchParams();
-    if (albumId !== '') params.set('albumId', String(albumId));
-    if (q) params.set('q', q);
-    if (published !== 'all') params.set('published', published);
-    params.set('limit', String(limit));
-    params.set('offset', String(reset ? 0 : offset));
-
+  async function load() {
+    setLoading(true); setErr('');
     try {
-      const r = await fetch(`/api/admin/photos?${params.toString()}`, { cache: 'no-store' });
-      const isJson = r.headers.get('content-type')?.includes('application/json');
-      const body = isJson ? await r.json().catch(() => ({})) : await r.text();
-      if (!r.ok) {
-        const msg = isJson ? (body?.error || `HTTP ${r.status}`) : `HTTP ${r.status}: ${body}`;
-        throw new Error(msg);
-      }
-      const data = isJson ? body : {};
-      const nextItems = Array.isArray(data.items) ? data.items : [];
-      setItems(reset ? nextItems : [...items, ...nextItems]);
-      setTotal(Number(data.total || 0));
-      setOffset(reset ? nextItems.length : offset + nextItems.length);
-    } catch (e) {
-      console.error('Photos load failed:', e);
-      setError(String(e?.message || e));
-    } finally {
-      setLoading(false);
-    }
-  }, [albumId, q, published, limit, offset, items]);
+      const r = await fetch('/api/admin/albums', { cache: 'no-store' });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+      setAlbums(Array.isArray(data.items) ? data.items : []);
+    } catch (e) { setErr(String(e.message || e)); }
+    finally { setLoading(false); }
+  }
 
-  useEffect(() => { load(true); }, [albumId, q, published]);
-
-  const listRef = useRef(null);
-  const ITEM_H = 160;
-  const GAP = 12;
-  const [range, setRange] = useState({ start: 0, end: 0 });
-
-  const onScroll = useCallback(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const per = ITEM_H + GAP;
-    const start = Math.max(0, Math.floor(el.scrollTop / per) - 5);
-    const visibleCount = Math.ceil(el.clientHeight / per) + 10;
-    const end = Math.min(items.length, start + visibleCount);
-    setRange({ start, end });
-    if (!loading && end > items.length - 10 && items.length < total) {
-      load(false);
-    }
-  }, [items.length, loading, total, load]);
-
-  useEffect(() => { onScroll(); }, [items.length]);
-
-  const slice = useMemo(() => items.slice(range.start, range.end), [items, range]);
-
-  const updateMeta = useCallback(async (id, patch) => {
-    setItems(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+  async function createAlbum() {
+    const t = title.trim();
+    if (!t) return;
     try {
-      await fetch('/api/admin/photos', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, ...patch }),
+      const r = await fetch('/api/admin/albums', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: t }),
       });
-    } catch (e) { console.error('PATCH failed:', e); }
-  }, []);
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+      setTitle('');
+      await load();
+    } catch (e) { alert('Не удалось создать альбом: ' + e.message); }
+  }
 
-  const remove = useCallback(async (p) => {
-    if (!confirm('Удалить фото?')) return;
-    setItems(prev => prev.filter(x => x.id !== p.id));
-    try {
-      await fetch('/api/admin/photos', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: p.id, url: p.url }),
-      });
-    } catch (e) { console.error('DELETE failed:', e); }
-  }, []);
+  useEffect(() => { load(); }, []);
 
   return (
     <main className="min-h-screen px-4 md:px-8 py-6 bg-[#0e1712] text-[#E7E8E0]">
-      <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Админ-панель · Галерея</h1>
+      <h1 className="text-2xl md:text-3xl font-semibold">Админ-панель · Альбомы</h1>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="text-sm opacity-75 mb-2">Фильтры</div>
-          <div className="flex flex-col gap-3">
-            <input
-              className="px-3 py-2 rounded-xl bg-black/20 ring-1 ring-white/10 outline-none"
-              placeholder="Поиск по названию…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <select
-                className="flex-1 px-3 py-2 rounded-xl bg-black/20 ring-1 ring-white/10"
-                value={albumId}
-                onChange={(e) => setAlbumId(e.target.value ? Number(e.target.value) : '')}
-              >
-                <option value="">Все альбомы</option>
-              </select>
-              <select
-                className="px-3 py-2 rounded-xl bg-black/20 ring-1 ring-white/10"
-                value={published}
-                onChange={(e)=>setPublished(e.target.value)}
-              >
-                <option value="all">Все</option>
-                <option value="true">Опублик.</option>
-                <option value="false">Черновики</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="md:col-span-2">
-          <Uploader onUploaded={() => load(true)} />
+      <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className="text-sm opacity-75 mb-2">Создать альбом</div>
+        <div className="flex gap-2">
+          <input
+            className="flex-1 px-3 py-2 rounded-xl bg-black/20 ring-1 ring-white/10 outline-none"
+            placeholder="Название альбома"
+            value={title}
+            onChange={(e)=>setTitle(e.target.value)}
+          />
+          <button
+            onClick={createAlbum}
+            className="px-4 py-2 rounded-xl bg-white/10 ring-1 ring-white/10 hover:bg-white/15">
+            Создать
+          </button>
         </div>
       </div>
 
-      <div
-        ref={listRef}
-        onScroll={onScroll}
-        className="mt-6 h-[70vh] overflow-y-auto rounded-2xl border border-white/10 bg-white/5 no-scrollbar"
-      >
-        <div style={{ height: (ITEM_H + GAP) * range.start }} />
-
-        {slice.map((p) => {
-          const w = p.width || 1600;
-          const h = p.height || 900;
-          return (
-            <div key={p.id}
-              className="mx-3 my-[6px] flex items-center gap-4 p-3 rounded-xl bg-black/10 ring-1 ring-white/5 shadow-md hover:shadow-lg transition-shadow"
-              style={{ height: ITEM_H }}>
-              <div className="relative w-48 h-[136px] rounded-lg overflow-hidden ring-1 ring-white/10">
-                <Image
-                  src={p.url}
-                  alt={p.title || ''}
-                  width={w}
-                  height={h}
-                  sizes="192px"
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                  quality={70}
-                  unoptimized
-                />
+      <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div className="text-sm opacity-75 mb-3">Мои альбомы</div>
+        {err && <div className="text-red-300 mb-2">{err}</div>}
+        {loading ? <div className="opacity-70">Загрузка…</div> : null}
+        <ul className="grid md:grid-cols-2 gap-3">
+          {albums.map(a => (
+            <li key={a.id} className="rounded-xl ring-1 ring-white/10 bg-black/10 p-3 flex items-center justify-between">
+              <div>
+                <div className="font-medium">{a.title}</div>
+                <div className="opacity-70 text-sm">{a.photos_count} фото · {new Date(a.created_at).toLocaleString('ru-RU')}</div>
               </div>
-              <div className="flex-1 min-w-0">
-                <input
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 ring-1 ring-white/10 outline-none mb-2"
-                  placeholder="Название / подпись"
-                  defaultValue={p.title || ''}
-                  onBlur={(e)=>updateMeta(p.id, { title: e.target.value })}
-                />
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <label className="inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    defaultChecked={p.published}
-                    onChange={(e)=>updateMeta(p.id, { published: e.target.checked })}
-                  />
-                  Опубликовано
-                </label>
-                <button
-                  className="px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 hover:bg-white/15"
-                  onClick={()=>remove(p)}
-                >
-                  Удалить
-                </button>
-                <div className="opacity-60 text-xs">
-                  {p.created_at ? new Date(p.created_at).toLocaleString('ru-RU') : ''}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-
-        <div style={{ height: Math.max(0, (ITEM_H + GAP) * (items.length - range.end)) }} />
-
-        {error ? (
-          <div className="py-4 text-center text-red-300/90">Ошибка загрузки: {error}</div>
-        ) : null}
-
-        {!loading && !error && items.length === 0 ? (
-          <div className="py-10 text-center opacity-70">Ничего не найдено</div>
-        ) : null}
-
-        {loading ? <div className="py-6 text-center opacity-70">Загрузка…</div> : null}
+              <Link
+                href={`/admin/albums/${a.id}`}
+                className="px-3 py-1.5 rounded-lg bg-white/10 ring-1 ring-white/10 hover:bg-white/15">
+                Открыть
+              </Link>
+            </li>
+          ))}
+          {!loading && albums.length === 0 ? <div className="opacity-70">Альбомов пока нет</div> : null}
+        </ul>
       </div>
     </main>
   );
