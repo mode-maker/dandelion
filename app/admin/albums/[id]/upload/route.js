@@ -1,12 +1,16 @@
-// app/api/admin/albums/[id]/upload/route.js
+// Загрузка фото в альбом: POST /api/admin/albums/:id/upload
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export const maxDuration = 60; // на всякий случай
 
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
-import { put } from '@vercel/blob';
+import { put as blobPut } from '@vercel/blob';
+
+function extFromName(name = '') {
+  const m = String(name).match(/\.([a-z0-9]+)$/i);
+  return m ? m[1].toLowerCase() : 'bin';
+}
 
 export async function POST(req, { params }) {
   try {
@@ -17,38 +21,45 @@ export async function POST(req, { params }) {
 
     const form = await req.formData();
     const file = form.get('file');
-    if (!file || typeof file === 'string') {
+    if (!file || !(file instanceof Blob)) {
       return NextResponse.json({ error: 'file required' }, { status: 400 });
     }
 
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) {
-      return NextResponse.json({ error: 'BLOB_READ_WRITE_TOKEN not set' }, { status: 500 });
-    }
+    // Имя и загрузка в Vercel Blob
+    const ext = extFromName(file.name || '');
+    const objectName = `albums/${albumId}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}.${ext}`;
 
-    // загружаем файл в Vercel Blob (паблик)
-    const blob = await put(`albums/${albumId}/${Date.now()}-${file.name}`, file, {
+    const uploaded = await blobPut(objectName, file, {
       access: 'public',
-      token,
+      addRandomSuffix: false,
+      contentType: file.type || 'application/octet-stream',
     });
 
-    // создаём запись в БД (подгони поля под свою схему при необходимости)
+    const url = uploaded?.url;
+    if (!url) {
+      return NextResponse.json({ error: 'blob upload failed' }, { status: 500 });
+    }
+
+    // Вставка записи в БД
+    // sort_index = следующий по порядку
     const insert = await sql`
-      INSERT INTO photos (album_id, url, title, published, sort_index, created_at)
+      INSERT INTO photos (album_id, url, title, published, sort_index)
       VALUES (
         ${albumId},
-        ${blob.url},
-        '',
-        true,
-        COALESCE((SELECT COALESCE(MAX(sort_index),0)+1 FROM photos WHERE album_id=${albumId}), 0),
-        NOW()
+        ${url},
+        ${''},
+        ${true},
+        COALESCE((SELECT MAX(sort_index)+1 FROM photos WHERE album_id = ${albumId}), 0)
       )
-      RETURNING id, album_id, url, title, published, sort_index, created_at
+      RETURNING id, album_id, url, width, height, title, published, sort_index, created_at
     `;
 
-    return NextResponse.json({ ok: true, item: insert.rows[0] }, { status: 200 });
+    const item = insert.rows?.[0];
+    return NextResponse.json({ ok: true, item }, { status: 200 });
   } catch (e) {
-    console.error('POST /api/admin/albums/[id]/upload failed:', e);
+    console.error('POST /api/admin/albums/[id]/upload error:', e);
     return NextResponse.json({ error: e?.message || 'internal error' }, { status: 500 });
   }
 }
