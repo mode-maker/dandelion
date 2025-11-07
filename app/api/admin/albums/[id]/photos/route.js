@@ -40,7 +40,13 @@ export async function POST(req, { params }) {
     }
 
     const form = await req.formData();
-    const files = form.getAll('files').filter(Boolean);
+        // Поддерживаем как поле "file", так и "files" для обратной совместимости
+    const files = [];
+    for (const field of ['file', 'files']) {
+      const values = form.getAll(field).filter(Boolean);
+      if (values.length) files.push(...values);
+    }
+    
     if (!files.length) {
       return NextResponse.json({ error: 'no files' }, { status: 400 });
     }
@@ -78,7 +84,10 @@ export async function POST(req, { params }) {
       sortIndex += 1;
     }
 
-    return NextResponse.json({ ok: true, items: created }, { status: 201 });
+        return NextResponse.json(
+      { ok: true, items: created, item: created[0] ?? null },
+      { status: 201 },
+    );
   } catch (e) {
     console.error('POST /api/admin/albums/[id]/photos failed:', e);
     return NextResponse.json({ error: e.message || 'internal error' }, { status: 500 });
