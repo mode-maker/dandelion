@@ -28,7 +28,7 @@ function BackgroundFX() {
   );
 }
 
-function AlbumCard({ album, onDelete }) {
+function AlbumCard({ album, onDelete, onRename }) {
   const date = album?.created_at ? new Date(album.created_at) : null;
   const humanDate = date
     ? date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -59,6 +59,12 @@ function AlbumCard({ album, onDelete }) {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+                    <button
+            onClick={() => onRename(album)}
+            className="rounded-lg bg-white/10 px-3 py-1.5 text-sm backdrop-blur hover:bg-white/15"
+          >
+            Переименовать
+          </button>
           <Link
             href={`/admin/albums/${album.id}`}
             className="rounded-lg bg-[#29523d] px-3 py-1.5 text-sm hover:bg-[#2f6148]"
