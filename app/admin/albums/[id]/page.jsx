@@ -1,119 +1,104 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 
-// Палитра Dandelion
-const COLORS = {
-  green: '#556B5A',
-  cream: '#E7E8E0',
-};
-
-function cx(...a) {
-  return a.filter(Boolean).join(' ');
+function cls(...parts) {
+  return parts.filter(Boolean).join(' ');
 }
 
-export default function AlbumPage() {
-  const router = useRouter();
-  const params = useParams();
-  const albumId = Number(params?.id);
-
+export default function AlbumPage({ params }) {
+  const albumId = Number(params.id);
   const [album, setAlbum] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [savingOrder, setSavingOrder] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const fileInputRef = useRef(null);
 
-  // Загружаем мета альбома (если есть эндпоинт /api/admin/albums/[id])
-  useEffect(() => {
-    let cancelled = false;
-    async function loadAlbum() {
-      try {
-        const res = await fetch(`/api/admin/albums/${albumId}`, { cache: 'no-store' });
-        if (res.ok) {
-          const data = await res.json();
-          if (!cancelled) setAlbum(data?.album || data || null);
-        } else {
-          // Фолбэк, если эндпоинта нет
-          if (!cancelled) setAlbum({ id: albumId, title: `Альбом #${albumId}`, created_at: null });
-        }
-      } catch {
-        if (!cancelled) setAlbum({ id: albumId, title: `Альбом #${albumId}`, created_at: null });
-      }
-    }
-    if (Number.isFinite(albumId)) loadAlbum();
-    return () => { cancelled = true; };
-  }, [albumId]);
-
-  // Загружаем фото альбома
-  async function refreshPhotos() {
+  async function loadAlbum() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/albums/${albumId}/photos?ts=${Date.now()}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin/albums/${albumId}`);
       const data = await res.json();
-      setPhotos(Array.isArray(data?.items) ? data.items : []);
+      setAlbum(data.album || null);
+      setPhotos(Array.isArray(data.photos) ? data.photos : []);
     } catch (e) {
-      console.error('load photos fail', e);
-      setPhotos([]);
+      console.error('loadAlbum failed:', e);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (Number.isFinite(albumId)) refreshPhotos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [albumId, refreshKey]);
+    loadAlbum();
+  }, [albumId]);
 
-  const dateText = useMemo(() => {
-    const dt = album?.created_at ? new Date(album.created_at) : null;
-    return dt ? dt.toLocaleDateString('ru-RU') : '—';
-  }, [album]);
+  function pickFiles() {
+    fileInputRef.current?.click();
+  }
 
-  // Загрузка файлов
-  async function doUpload(files) {
-    if (!files?.length) return;
+  async function onPickFiles(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
     setUploading(true);
+
     try {
-      const form = new FormData();
-      for (const f of files) form.append('files', f);
-      const res = await fetch(`/api/admin/albums/${albumId}/photos`, {
-        method: 'POST',
-        body: form,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'upload failed');
-      await refreshPhotos();
+      // Грузим ПО ОДНОМУ файлу, чтобы не упереться в лимиты тела запроса
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('albumId', String(albumId));
+
+        const res = await fetch(`/api/admin/albums/${albumId}/upload`, {
+          method: 'POST',
+          body: fd, // ВАЖНО: не ставим Content-Type — браузер проставит boundary сам
+        });
+
+        if (!res.ok) {
+          // Не пытаемся делать res.json(), если не ok — это как раз уберёт "Unexpected token 'R'"
+          const txt = await res.text().catch(() => '');
+          console.error('upload failed:', res.status, txt);
+          throw new Error(`upload failed: ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (data?.item) {
+          setPhotos((prev) => {
+            // небольшая защита от дублей
+            if (prev.some((p) => p.id === data.item.id)) return prev;
+            return [...prev, data.item].sort((a, b) => (a.sort_index ?? 0) - (b.sort_index ?? 0) || a.id - b.id);
+          });
+        }
+      }
     } catch (e) {
-      console.error('Upload failed:', e);
-      alert(`Ошибка загрузки: ${e.message || e}`);
+      console.error('onPickFiles error:', e);
+      alert('Не удалось загрузить часть файлов. Подробности в консоли.');
     } finally {
       setUploading(false);
+      // сбросим инпут, чтобы повторно выбрать те же файлы можно было
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
 
-  // Показать/Скрыть
-  async function togglePublish(photo) {
+  async function togglePublish(photoId, next) {
     try {
       const res = await fetch('/api/admin/photos', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: photo.id, published: !photo.published }),
+        body: JSON.stringify({ id: photoId, published: next }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'patch failed');
-      // локально обновим для мгновенного UI
-      setPhotos(prev => prev.map(p => p.id === photo.id ? { ...p, published: !photo.published } : p));
+      if (!res.ok || !data?.ok) throw new Error('patch failed');
+      setPhotos((prev) => prev.map((p) => (p.id === photoId ? { ...p, published: next } : p)));
     } catch (e) {
-      console.error('publish toggle failed', e);
-      alert(`Не удалось обновить статус: ${e.message || e}`);
+      console.error('togglePublish failed:', e);
+      alert('Не удалось изменить публикацию.');
     }
   }
 
-  // Удаление
   async function removePhoto(photo) {
-    if (!confirm('Удалить это фото?')) return;
+    if (!confirm('Удалить фото безвозвратно?')) return;
     try {
       const res = await fetch('/api/admin/photos', {
         method: 'DELETE',
@@ -121,249 +106,131 @@ export default function AlbumPage() {
         body: JSON.stringify({ id: photo.id, url: photo.url }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'delete failed');
-      setPhotos(prev => prev.filter(p => p.id !== photo.id));
+      if (!res.ok || !data?.ok) throw new Error('delete failed');
+      setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
     } catch (e) {
-      console.error('delete failed', e);
-      alert(`Не удалось удалить: ${e.message || e}`);
+      console.error('removePhoto failed:', e);
+      alert('Не удалось удалить фото.');
     }
   }
 
-  // Кнопки перемещения ⬆️/⬇️ (без drag&drop)
-  function localSwap(indexA, indexB) {
-    setPhotos(prev => {
-      const arr = [...prev];
-      const tmp = arr[indexA];
-      arr[indexA] = arr[indexB];
-      arr[indexB] = tmp;
-      // пересчёт sort_index локально
-      return arr.map((p, i) => ({ ...p, sort_index: i }));
-    });
-  }
-
-  async function saveOrder(partialIndexes = null) {
-    // Если переданы индексы — отправим только их; иначе — весь порядок
-    const list = Array.isArray(partialIndexes)
-      ? partialIndexes.map(i => ({ id: photos[i].id, sort_index: i }))
-      : photos.map((p, i) => ({ id: p.id, sort_index: i }));
-
-    setSavingOrder(true);
-    try {
-      const res = await fetch(`/api/admin/albums/${albumId}/photos`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: list }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'order save failed');
-      // Перечитаем на всякий случай
-      await refreshPhotos();
-    } catch (e) {
-      console.error('save order failed', e);
-      alert(`Не удалось сохранить порядок: ${e.message || e}`);
-    } finally {
-      setSavingOrder(false);
-    }
-  }
-
-  function moveUp(idx) {
-    if (idx <= 0) return;
-    localSwap(idx, idx - 1);
-    // Сохранить только две изменённые позиции
-    saveOrder([idx - 1, idx]);
-  }
-
-  function moveDown(idx) {
-    if (idx >= photos.length - 1) return;
-    localSwap(idx, idx + 1);
-    saveOrder([idx, idx + 1]);
-  }
+  const title = useMemo(() => album?.title || `Альбом #${albumId}`, [albumId, album]);
 
   return (
-    <div
-      className="min-h-screen text-[var(--cream)]"
-      style={{
-        // Глубокий градиентный фон + лёгкое свечение частиц
-        background: `radial-gradient(1200px 600px at 20% -10%, rgba(255,255,255,0.07), transparent 60%),
-                     radial-gradient(800px 500px at 80% 10%, rgba(255,255,255,0.06), transparent 60%),
-                     linear-gradient(180deg, rgba(34,49,40,1) 0%, rgba(21,31,28,1) 100%)`,
-        ['--cream']: COLORS.cream,
-      }}
-    >
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        {/* Header */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight" style={{ color: COLORS.cream }}>
-              Альбом: <span className="opacity-90">{album?.title || `#${albumId}`}</span> · <span className="opacity-70">{dateText}</span>
-            </h1>
-            <p className="mt-1 text-sm opacity-70">Управление фотографиями в стиле Dandelion</p>
-          </div>
+    <div className="min-h-screen text-white relative overflow-x-hidden">
+      {/* фон */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(20,60,40,.7),transparent_40%),radial-gradient(ellipse_at_bottom_right,rgba(10,30,25,.9),#0a1613)]" />
+      <div className="pointer-events-none absolute inset-0">
+        {/* лёгкие частицы/блики */}
+        <div className="absolute inset-0 opacity-40" style={{ backgroundImage: 'radial-gradient(#1f3d31 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+      </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push('/admin')}
-              className="rounded-2xl px-4 py-2 text-sm bg-white/10 hover:bg-white/15 transition shadow-sm shadow-black/20"
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="font-semibold text-xl">
+            Альбом: {title}
+            {album?.created_at ? (
+              <span className="ml-2 text-white/60 text-sm">
+                ·{' '}
+                {new Date(album.created_at).toLocaleDateString('ru-RU', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })}
+              </span>
+            ) : null}
+          </h1>
+          <div className="flex gap-2">
+            <Link
+              href="/admin"
+              className="rounded-xl px-4 py-2 bg-white/10 hover:bg-white/15 transition"
             >
               ← К альбомам
+            </Link>
+            <button
+              onClick={loadAlbum}
+              className="rounded-xl px-4 py-2 bg-white/10 hover:bg-white/15 transition"
+            >
+              Обновить
             </button>
             <button
-              onClick={() => setRefreshKey(k => k + 1)}
-              className="rounded-2xl px-4 py-2 text-sm bg-white/10 hover:bg-white/15 transition shadow-sm shadow-black/20"
-              disabled={loading}
+              disabled={uploading}
+              onClick={pickFiles}
+              className={cls(
+                'rounded-xl px-4 py-2 transition',
+                uploading ? 'bg-emerald-700/50 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-500'
+              )}
             >
-              {loading ? 'Обновляю…' : 'Обновить'}
-            </button>
-
-            {/* Upload */}
-            <label className={cx(
-              "cursor-pointer rounded-2xl px-4 py-2 text-sm transition shadow-sm shadow-black/20",
-              uploading ? "bg-[var(--green)]/40" : "bg-[var(--green)] hover:opacity-90"
-            )} style={{ ['--green']: COLORS.green }}>
               {uploading ? 'Загрузка…' : 'Добавить фото'}
-              <input
-                type="file"
-                className="hidden"
-                multiple
-                accept="image/*"
-                onChange={(e) => {
-                  const files = e.currentTarget.files;
-                  if (files && files.length) doUpload(files);
-                  e.currentTarget.value = '';
-                }}
-              />
-            </label>
+            </button>
+            <input
+              ref={fileInputRef}
+              className="hidden"
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={onPickFiles}
+            />
           </div>
         </div>
 
-        {/* Панель */}
-        <div className="rounded-2xl bg-white/5 shadow-xl shadow-black/20 ring-1 ring-white/10 p-4 md:p-5">
-          {/* Мини превью порядка */}
-          <div className="mb-4">
-            <h2 className="mb-2 text-sm font-medium opacity-80">Мини-превью порядка (как на сайте)</h2>
-            <div className="flex overflow-x-auto gap-2 pb-2">
-              {photos.map((p) => (
-                <div key={p.id} className="shrink-0 w-24 aspect-[4/3] rounded-xl overflow-hidden bg-black/30 ring-1 ring-white/10">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.url} alt={`photo ${p.id}`} className="h-full w-full object-cover" />
-                </div>
-              ))}
-              {!photos.length && <div className="text-sm opacity-60">Пока нет фотографий…</div>}
-            </div>
+        {/* сетка фотографий */}
+        {loading ? (
+          <div className="rounded-2xl bg-white/5 p-6 text-white/70">Загрузка альбома…</div>
+        ) : photos.length === 0 ? (
+          <div className="rounded-2xl bg-white/5 p-6 text-white/70">
+            Здесь пока нет фото. Нажми «Добавить фото».
           </div>
-
-          {/* Сетка фото */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-5">
-            {loading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-56 rounded-2xl bg-white/5 animate-pulse" />
-              ))
-            ) : photos.length ? (
-              photos.map((p, idx) => (
-                <div
-                  key={p.id}
-                  className="rounded-2xl overflow-hidden bg-white/5 ring-1 ring-white/10 shadow-lg shadow-black/20 group"
-                >
-                  <div className="relative">
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {photos
+              .slice()
+              .sort((a, b) => (a.sort_index ?? 0) - (b.sort_index ?? 0) || a.id - b.id)
+              .map((p) => (
+                <div key={p.id} className="rounded-2xl overflow-hidden bg-white/5 border border-white/10">
+                  <div className="aspect-[4/3] bg-black/20">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={p.url}
                       alt={p.title || `photo ${p.id}`}
-                      className="h-56 w-full object-cover transition-transform duration-300 group-hover:scale-[1.01]"
-                      draggable={false}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
                     />
-                    <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/40 to-transparent opacity-70" />
                   </div>
-
-                  <div className="p-3 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-xs opacity-85">
-                      <span>#{p.id}</span>
-                      <span className={cx("px-2 py-0.5 rounded-full",
-                        p.published ? "bg-emerald-400/20 text-emerald-200 ring-1 ring-emerald-300/30" :
-                                      "bg-yellow-400/20 text-yellow-200 ring-1 ring-yellow-300/30"
-                      )}>
+                  <div className="p-3 flex items-center justify-between">
+                    <div className="text-sm text-white/80">
+                      <div className="font-medium">
+                        #{p.id} {p.title ? `· ${p.title}` : ''}
+                      </div>
+                      <div className="text-xs mt-0.5">
                         {p.published ? 'Публикуется' : 'Скрыто'}
-                      </span>
+                      </div>
                     </div>
-
-                    {/* Кнопки управления */}
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex gap-2">
                       <button
-                        onClick={() => togglePublish(p)}
-                        className="rounded-xl px-3 py-1.5 text-xs bg-white/10 hover:bg-white/15 transition shadow-sm shadow-black/20"
+                        onClick={() => togglePublish(p.id, !p.published)}
+                        className={cls(
+                          'rounded-lg px-3 py-1.5 text-sm transition',
+                          p.published
+                            ? 'bg-white/10 hover:bg-white/15'
+                            : 'bg-emerald-600 hover:bg-emerald-500'
+                        )}
                         title={p.published ? 'Скрыть' : 'Показать'}
                       >
                         {p.published ? 'Скрыть' : 'Показать'}
                       </button>
-
                       <button
                         onClick={() => removePhoto(p)}
-                        className="rounded-xl px-3 py-1.5 text-xs bg-white/10 hover:bg-white/15 transition shadow-sm shadow-black/20"
+                        className="rounded-lg px-3 py-1.5 text-sm bg-red-600/80 hover:bg-red-600 transition"
                       >
                         Удалить
                       </button>
-
-                      <div className="ml-auto flex items-center gap-1">
-                        <button
-                          onClick={() => moveUp(idx)}
-                          className="rounded-xl px-2 py-1.5 text-xs bg-white/10 hover:bg-white/15 transition shadow-sm shadow-black/20 disabled:opacity-40"
-                          disabled={idx === 0 || savingOrder}
-                          title="Выше"
-                        >
-                          ⬆️
-                        </button>
-                        <button
-                          onClick={() => moveDown(idx)}
-                          className="rounded-xl px-2 py-1.5 text-xs bg-white/10 hover:bg-white/15 transition shadow-sm shadow-black/20 disabled:opacity-40"
-                          disabled={idx === photos.length - 1 || savingOrder}
-                          title="Ниже"
-                        >
-                          ⬇️
-                        </button>
-                      </div>
                     </div>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="col-span-full text-sm opacity-70">
-                В этом альбоме пока нет фотографий. Нажмите «Добавить фото».
-              </div>
-            )}
+              ))}
           </div>
-
-          {/* Нижняя панель действий */}
-          <div className="mt-5 flex items-center justify-between">
-            <div className="text-xs opacity-60">
-              Всего: {photos.length} фото
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setRefreshKey(k => k + 1)}
-                className="rounded-2xl px-4 py-2 text-sm bg-white/10 hover:bg-white/15 transition shadow-sm shadow-black/20"
-                disabled={loading}
-              >
-                {loading ? 'Обновляю…' : 'Обновить'}
-              </button>
-              <button
-                onClick={() => saveOrder()}
-                className={cx(
-                  "rounded-2xl px-4 py-2 text-sm transition shadow-sm shadow-black/20",
-                  savingOrder ? "bg-[var(--green)]/40" : "bg-[var(--green)] hover:opacity-90"
-                )}
-                style={{ ['--green']: COLORS.green }}
-                disabled={savingOrder || loading}
-              >
-                {savingOrder ? 'Сохраняю порядок…' : 'Сохранить порядок'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Подсказка по стилю */}
-        <p className="mt-4 text-xs opacity-60">
-          Стиль: мягкие скругления (rounded-2xl), тени shadow-black/20, полупрозрачные панели bg-white/5, зелёные акценты {COLORS.green}.
-        </p>
+        )}
       </div>
     </div>
   );
