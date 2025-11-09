@@ -231,7 +231,7 @@ function AlbumStrip({ album, albumIndex, onPhotosLoaded, onOpen }) {
     onScroll(); // рассчитать изначально
   }, [photos.length]); // eslint-disable-line
 
-    const onWheel = useCallback((event) => {
+  const onWheel = useCallback((event) => {
     const el = stripRef.current;
     if (!el) return;
     const { deltaX, deltaY } = event;
@@ -262,6 +262,7 @@ function AlbumStrip({ album, albumIndex, onPhotosLoaded, onOpen }) {
           ref={stripRef}
           className="no-scrollbar flex gap-4 overflow-x-auto snap-x snap-mandatory"
           onScroll={onScroll}
+          onWheel={onWheel}
           style={{ scrollSnapType: 'x mandatory' }}
         >
           {/* Спейсер слева */}
