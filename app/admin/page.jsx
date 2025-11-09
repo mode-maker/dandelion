@@ -1,283 +1,237 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
-/** Лёгкий фон с «частицами» под зелёную тему Dandelion */
-function BackgroundFX() {
+function fmtDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return '';
+  }
+}
+
+async function jsonFetch(url, opts = {}) {
+  const res = await fetch(url, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(opts.headers || {}),
+    },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(msg || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export default function AdminAlbumsPage() {
+  const [albums, setAlbums] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const total = useMemo(() => albums?.length || 0, [albums]);
+
+  async function loadAlbums() {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await jsonFetch('/api/admin/albums');
+      setAlbums(Array.isArray(data?.items) ? data.items : []);
+    } catch (e) {
+      console.error('loadAlbums failed:', e);
+      setError('Не удалось загрузить альбомы');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadAlbums();
+  }, []);
+
+  async function handleCreate() {
+    const name = prompt('Название нового альбома:');
+    if (!name || !name.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      await jsonFetch('/api/admin/albums', {
+        method: 'POST',
+        body: JSON.stringify({ title: name.trim() }),
+      });
+      await loadAlbums();
+    } catch (e) {
+      console.error('create album failed:', e);
+      alert('Ошибка создания альбома');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRename(album) {
+    const name = prompt('Новое название альбома:', album.title || '');
+    if (!name || !name.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      await jsonFetch(`/api/admin/albums/${album.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title: name.trim() }),
+      });
+      await loadAlbums();
+    } catch (e) {
+      console.error('rename failed:', e);
+      alert('Ошибка переименования');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDelete(album) {
+    if (!confirm(`Удалить альбом «${album.title || album.id}» вместе со снимками?`)) return;
+    setBusy(true);
+    setError('');
+    try {
+      await jsonFetch(`/api/admin/albums/${album.id}`, { method: 'DELETE' });
+      await loadAlbums();
+    } catch (e) {
+      console.error('delete failed:', e);
+      alert('Ошибка удаления');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
-      <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_50%_-20%,#163223_50%,#0b1310_100%)]" />
-      <div className="absolute inset-0 mix-blend-screen opacity-30">
-        {/* «пыльца» */}
-        {[...Array(24)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full blur-[2px]"
-            style={{
-              left: `${(i * 137) % 100}%`,
-              top: `${(i * 73) % 100}%`,
-              width: 6,
-              height: 6,
-              background: 'rgba(140, 206, 150, 0.45)',
-            }}
-          />
-        ))}
+    <div className="min-h-screen relative overflow-x-hidden bg-[radial-gradient(1200px_600px_at_10%_-10%,rgba(32,84,72,0.75),transparent),radial-gradient(1000px_800px_at_90%_0%,rgba(24,54,46,0.65),transparent),#0c201a] text-emerald-50">
+      {/* мягкие частицы/зерно */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(255,255,255,0.04),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.03),transparent_40%),radial-gradient(circle_at_60%_80%,rgba(255,255,255,0.025),transparent_45%)]" />
+
+      <div className="relative mx-auto max-w-6xl px-4 py-8">
+        <header className="mb-6 flex items-center justify-between gap-4">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+            Админ · Альбомы
+            {total ? <span className="ml-3 text-emerald-300/70 text-base align-middle">({total})</span> : null}
+          </h1>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={loadAlbums}
+              disabled={loading || busy}
+              className="rounded-xl px-4 py-2 bg-white/5 hover:bg-white/10 transition disabled:opacity-50"
+            >
+              Обновить
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={busy}
+              className="rounded-xl px-4 py-2 bg-emerald-500/90 hover:bg-emerald-400 text-emerald-950 font-semibold transition disabled:opacity-50"
+            >
+              Создать альбом
+            </button>
+          </div>
+        </header>
+
+        {error ? (
+          <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-200">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="rounded-3xl border border-emerald-400/10 bg-white/5 backdrop-blur px-4 py-4">
+          {loading ? (
+            <div className="py-10 text-center text-emerald-200/80">Загрузка…</div>
+          ) : albums.length === 0 ? (
+            <div className="py-10 text-center text-emerald-200/70">
+              Альбомов пока нет. Нажмите «Создать альбом».
+            </div>
+          ) : (
+            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {albums.map((a) => (
+                <li key={a.id}>
+                  <AlbumCard
+                    album={a}
+                    onDelete={() => handleDelete(a)}
+                    onRename={() => handleRename(a)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 function AlbumCard({ album, onDelete, onRename }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [value, setValue] = useState(album.title || '');
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!isEditing) {
-      setValue(album.title || '');
-    }
-  }, [album.title, isEditing]);
-
-  async function submitRename() {
-    const nextTitle = value.trim();
-    if (!nextTitle) {
-      setError('Введите название');
-      return;
-    }
-
-    if (nextTitle === (album.title || '')) {
-      setIsEditing(false);
-      setError('');
-      return;
-    }
-
-@@ -106,208 +81,219 @@ function AlbumCard({ album, onDelete, onRename }) {
-    }
-  }
-
-  const date = album?.created_at ? new Date(album.created_at) : null;
-  const humanDate = date
-    ? date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })
-    : '—';
+  const cover = album.cover_url || album.cover || album.preview || '';
+  const date = fmtDate(album.created_at || album.createdAt);
+  const count = album.photo_count ?? album.photos_count ?? album.count ?? 0;
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-[#2a3a31] bg-white/5 p-4 shadow-[0_6px_25px_rgba(0,0,0,0.25)] backdrop-blur">
-      {/* мини-превью (если есть) */}
-      {Array.isArray(album.preview) && album.preview.length > 0 ? (
-        <div className="grid grid-cols-4 gap-1">
-          {album.preview.slice(0, 8).map((p) => (
-            <div key={p.id} className="relative w-full pt-[75%] overflow-hidden rounded-xl">
-              <img src={p.url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-            </div>
-          ))}
+    <div className="group rounded-2xl border border-emerald-400/10 bg-emerald-800/10 hover:bg-emerald-700/10 transition overflow-hidden">
+      {cover ? (
+        <div className="aspect-[16/9] w-full overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={cover}
+            alt={album.title || `Альбом #${album.id}`}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            loading="lazy"
+          />
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-[#2a3a31] py-10 text-center text-sm text-gray-400">
-          Нет превью
+        <div className="aspect-[16/9] w-full bg-emerald-900/20 flex items-center justify-center text-emerald-200/60">
+          без обложки
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div className="min-w-0 flex-1">
-            {isEditing ? (
-              <div className="flex flex-col gap-2">
-                <input
-                  className="w-full rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm outline-none ring-2 ring-transparent transition focus:border-white/20 focus:ring-white/30"
-                  value={value}
-                  autoFocus
-                  onChange={(e) => setValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Название альбома"
-                />
-                {error && <p className="text-xs text-rose-300">{error}</p>}
-              </div>
-            ) : (
-              <>
-                <div className="truncate text-lg font-semibold">{album.title || `Альбом #${album.id}`}</div>
-                <div className="text-xs text-gray-400">
-                  {humanDate} • Фото: {album.photo_count ?? 0}
-                </div>
-              </>
-            )}
+      <div className="p-4 flex flex-col gap-3">
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-semibold text-emerald-50 truncate">
+              {album.title || `Альбом #${album.id}`}
+            </h3>
+            <span className="text-xs text-emerald-200/70 whitespace-nowrap">{date}</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {isEditing ? (
-              <>
-                <button
-                  type="button"
-                  onClick={submitRename}
-                  disabled={pending}
-                  className="rounded-lg bg-[#2d6d4c] px-3 py-1.5 text-sm transition hover:bg-[#36845d] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {pending ? 'Сохранение…' : 'Сохранить'}
-                </button>
-                <button
-                  type="button"
-                  onClick={cancelRename}
-                  disabled={pending}
-                  className="rounded-lg bg-white/10 px-3 py-1.5 text-sm transition hover:bg-white/15 disabled:opacity-60"
-                >
-                  Отмена
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditing(true);
-                  setError('');
-                  setValue(album.title || '');
-                }}
-                className="rounded-lg bg-white/10 px-3 py-1.5 text-sm transition hover:bg-white/15"
-              >
-                Переименовать
-              </button>
-            )}
-            <Link
-              href={`/admin/albums/${album.id}`}
-              className="rounded-lg bg-[#29523d] px-3 py-1.5 text-sm transition hover:bg-[#2f6148]"
-            >
-              Открыть
-            </Link>
-            <button
-              type="button"
-              onClick={() => onDelete(album.id)}
-              className="rounded-lg bg-[#4a1f1f] px-3 py-1.5 text-sm transition hover:bg-[#5a2626]"
-            >
-              Удалить
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function AdminAlbumsPage() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const r = await fetch('/api/admin/albums', { cache: 'no-store' });
-      if (!r.ok) {
-        throw new Error('Не удалось получить список альбомов');
-      }
-      const j = await r.json();
-      setItems(j.items || []);
-    } catch (e) {
-      setError(e?.message || 'Не удалось загрузить данные');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const createAlbum = useCallback(async () => {
-    const title = prompt('Название альбома');
-    if (!title) return;
-    await fetch('/api/admin/albums', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title }),
-    });
-    await load();
-  }, [load]);
-
-  const deleteAlbum = useCallback(
-    async (id) => {
-      if (!confirm('Удалить альбом и все фото?')) return;
-      await fetch('/api/admin/albums', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
-      await load();
-    },
-    [load],
-  );
-
-  const renameAlbum = useCallback(async (id, title) => {
-    const response = await fetch('/api/admin/albums', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, title }),
-    });
-
-    if (!response.ok) {
-      let message = 'Не удалось сохранить изменения';
-      try {
-        const data = await response.json();
-        if (data?.error) message = data.error;
-      } catch (e) {
-        // ignore
-      }
-      throw new Error(message);
-    }
-
-    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, title } : item)));
-  }, []);
-
-  return (
-    <div className="relative min-h-dvh text-white">
-      <BackgroundFX />
-
-      <div className="mx-auto w-full max-w-6xl px-5 py-8">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 backdrop-blur">
-          <div className="min-w-0">
-            <p className="text-sm uppercase tracking-[0.2em] text-white/60">Админ</p>
-            <h1 className="text-3xl font-semibold leading-tight">Альбомы</h1>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={load}
-              className="rounded-xl bg-white/10 px-4 py-2 text-sm backdrop-blur hover:bg-white/15"
-            >
-              Обновить
-            </button>
-            <button
-              type="button"
-              onClick={createAlbum}
-              className="rounded-xl bg-[#2c5b43] px-4 py-2 text-sm hover:bg-[#376e54]"
-            >
-              Создать альбом
-            </button>
+          <div className="mt-1 text-sm text-emerald-200/70">
+            Фото: <b className="text-emerald-200">{count}</b>
           </div>
         </div>
 
-        {error && (
-          <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-            {error}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/admin/albums/${album.id}`}
+            className="inline-flex items-center justify-center rounded-xl px-3 py-2 bg-emerald-500/90 hover:bg-emerald-400 text-emerald-950 font-semibold transition"
+          >
+            Открыть
+          </Link>
 
-        {loading ? (
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-10 text-center text-sm text-white/70">
-            Загрузка…
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((a) => (
-              <AlbumCard key={a.id} album={a} onDelete={deleteAlbum} onRename={renameAlbum} />
-            ))}
-            {!items.length && (
-              <div className="rounded-2xl border border-[#2a3a31] bg-white/5 p-6 text-center text-sm text-gray-400">
-                Альбомов пока нет. Нажми «Создать альбом».
-              </div>
-            )}
-          </div>
-        )}
+          <button
+            onClick={onRename}
+            className="rounded-xl px-3 py-2 bg-white/5 hover:bg-white/10 transition"
+          >
+            Переименовать
+          </button>
+
+          <button
+            onClick={onDelete}
+            className="ml-auto rounded-xl px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-100 transition"
+          >
+            Удалить
+          </button>
+        </div>
       </div>
     </div>
   );
