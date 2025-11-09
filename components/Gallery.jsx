@@ -94,7 +94,7 @@ export default function Gallery() {
           <h2
             className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] tracking-wide text-center mb-8`}
           >
-            Галерея
+            ГАЛЕРЕЯ
           </h2>
           <p className="mt-2 opacity-70">Загрузка альбомов…</p>
         </div>
@@ -109,7 +109,7 @@ export default function Gallery() {
           <h2
             className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] tracking-wide text-center mb-8`}
           >
-            Галерея
+            ГАЛЕРЕЯ
           </h2>
           <p className="mt-2 text-red-300">Ошибка: {error}</p>
         </div>
@@ -124,7 +124,7 @@ export default function Gallery() {
           <h2
             className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] tracking-wide text-center`}
           >
-            Галерея
+            ГАЛЕРЕЯ
           </h2>
         </div>
         <div className="space-y-8">
