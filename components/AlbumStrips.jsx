@@ -66,7 +66,7 @@ export default function AlbumStrips(){
   return (
     <section className="w-full py-10 md:py-14">
       <div className="mx-auto max-w-6xl px-4">
-        <h2 className="text-center text-2xl md:text-3xl font-semibold text-[#E7E8E0]">Галерея</h2>
+        <h2 className="text-center text-2xl md:text-3xl font-semibold text-[#E7E8E0]">ГАЛЕРЕЯ</h2>
 
         <div className="mt-8 space-y-10">
           {albums.map((a, ai) => (
