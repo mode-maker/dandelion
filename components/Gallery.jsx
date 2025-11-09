@@ -176,7 +176,9 @@ function AlbumStrip({ album, albumIndex, onPhotosLoaded, onOpen }) {
   const [total, setTotal] = useState(album.photo_count || 0);
   const [photos, setPhotos] = useState(album._photos || []);
   const loadingRef = useRef(false);
-
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  
   const LIMIT = 28; // шаг подгрузки фото
 
   // Подгрузка фото порциями
@@ -215,11 +217,14 @@ function AlbumStrip({ album, albumIndex, onPhotosLoaded, onOpen }) {
     if (!el) return;
     const scrollLeft = el.scrollLeft;
     const vw = el.clientWidth;
+    const scrollWidth = el.scrollWidth;
     const perItem = ITEM_W + GAP;
     const start = Math.max(0, Math.floor(scrollLeft / perItem) - 3);
     const visibleCount = Math.ceil(vw / perItem) + 6; // буфер с обеих сторон
     const end = Math.min(photos.length, start + visibleCount);
     setRange({ start, end });
+    setCanScrollLeft(scrollLeft > 0);
+    setCanScrollRight(scrollLeft + vw < scrollWidth - 1);
 
     // догружаем следующую порцию ближе к концу
     if (end > photos.length - 8) {
@@ -243,6 +248,13 @@ function AlbumStrip({ album, albumIndex, onPhotosLoaded, onOpen }) {
 
   const slice = useMemo(() => photos.slice(range.start, range.end), [photos, range]);
 
+  const scrollByStep = useCallback((direction) => {
+    const el = stripRef.current;
+    if (!el) return;
+    const STEP = (ITEM_W + GAP) * 2;
+    el.scrollBy({ left: direction * STEP, behavior: 'smooth' });
+  }, []);
+
   return (
     <div className="content-auto">
       {/* Заголовок альбома */}
@@ -258,7 +270,8 @@ function AlbumStrip({ album, albumIndex, onPhotosLoaded, onOpen }) {
 
       {/* Горизонтальная лента с виртуализацией */}
       <div className="px-4 pb-4">
-        <div
+        <div className="relative">
+          <div
           ref={stripRef}
           className="no-scrollbar flex gap-4 overflow-x-auto snap-x snap-mandatory"
           onScroll={onScroll}
@@ -300,6 +313,25 @@ function AlbumStrip({ album, albumIndex, onPhotosLoaded, onOpen }) {
 
           {/* Спейсер справа */}
           <div style={{ width: Math.max(0, (ITEM_W + GAP) * (photos.length - range.end)), flex: '0 0 auto' }} />
+        </div>
+          
+          {/* Кнопки прокрутки */}
+          <button
+            type="button"
+            className={`absolute top-1/2 left-0 -translate-y-1/2 rounded-full bg-black/40 text-white p-3 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white/70 ${canScrollLeft ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            onClick={() => scrollByStep(-1)}
+            aria-label="Прокрутить ленту влево"
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            className={`absolute top-1/2 right-0 -translate-y-1/2 rounded-full bg-black/40 text-white p-3 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white/70 ${canScrollRight ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            onClick={() => scrollByStep(1)}
+            aria-label="Прокрутить ленту вправо"
+          >
+            →
+          </button>
         </div>
       </div>
     </div>
