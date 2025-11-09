@@ -82,8 +82,8 @@ export default function Gallery() {
 
   if (loading) {
     return (
-      <section className="w-full py-10 md:py-14">
-        <div className="px-4 md:px-8">
+      <section className="w-full py-10 md:py-14 flex justify-center">
+        <div className="w-full max-w-6xl px-4 md:px-8">
           <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">Галерея</h2>
           <p className="mt-2 opacity-70">Загрузка альбомов…</p>
         </div>
@@ -93,8 +93,8 @@ export default function Gallery() {
 
   if (error) {
     return (
-      <section className="w-full py-10 md:py-14">
-        <div className="px-4 md:px-8">
+      <section className="w-full py-10 md:py-14 flex justify-center">
+        <div className="w-full max-w-6xl px-4 md:px-8">
           <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">Галерея</h2>
           <p className="mt-2 text-red-300">Ошибка: {error}</p>
         </div>
@@ -103,28 +103,29 @@ export default function Gallery() {
   }
 
   return (
-    <section className="w-full py-10 md:py-14">
-      <div className="px-4 md:px-8 mb-6">
-        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">Галерея</h2>
-        <p className="mt-2 text-[#E7E8E0]/70">Живые моменты с мастер-классов и событий Dandelion.</p>
-      </div>
-
-      <div className="space-y-8">
-        {albums.map((a, ai) => (
-          <AlbumStrip
-            key={a.id}
-            album={a}
-            albumIndex={ai}
-            onPhotosLoaded={(photos) => {
-              setAlbums(prev => {
-                const copy = [...prev];
-                copy[ai] = { ...copy[ai], _photos: photos, _loaded: true };
-                return copy;
-              });
-            }}
-            onOpen={(idx, url) => open(ai, idx, url)}
-          />
-        ))}
+    <section className="w-full py-10 md:py-14 flex justify-center">
+      <div className="w-full max-w-6xl px-4 md:px-8">
+        <div className="mb-6">
+          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">Галерея</h2>
+          <p className="mt-2 text-[#E7E8E0]/70">Живые моменты с мастер-классов и событий Dandelion.</p>
+        </div>
+        <div className="space-y-8">
+          {albums.map((a, ai) => (
+            <AlbumStrip
+              key={a.id}
+              album={a}
+              albumIndex={ai}
+              onPhotosLoaded={(photos) => {
+                setAlbums(prev => {
+                  const copy = [...prev];
+                  copy[ai] = { ...copy[ai], _photos: photos, _loaded: true };
+                  return copy;
+                });
+              }}
+              onOpen={(idx, url) => open(ai, idx, url)}
+            />
+          ))}
+        </div>
       </div>
 
       {lightbox && (
