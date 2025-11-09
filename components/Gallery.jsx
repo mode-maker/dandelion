@@ -254,9 +254,17 @@ function AlbumStrip({ album, albumIndex, onPhotosLoaded, onOpen }) {
     onScroll(); // рассчитать изначально
   }, [photos.length]); // eslint-disable-line
 
+    const onWheel = useCallback((event) => {
+    const el = stripRef.current;
+    if (!el) return;
+
     if (Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.shiftKey) {
+      return;
       event.preventDefault();
     }
+
+    event.preventDefault();
+    el.scrollBy({ left: event.deltaY, behavior: 'auto' });
   }, []);
 
   const slice = useMemo(() => photos.slice(range.start, range.end), [photos, range]);
