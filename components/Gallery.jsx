@@ -3,6 +3,13 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import Image from 'next/image';
+import { Caveat } from 'next/font/google';
+
+const caveat = Caveat({
+  subsets: ['cyrillic', 'latin'],
+  weight: ['700'],
+  display: 'swap',
+});
 
 // форматируем дату: 31 октября 2025
 function formatRuDate(input) {
@@ -84,7 +91,11 @@ export default function Gallery() {
     return (
       <section className="w-full py-10 md:py-14 flex justify-center">
         <div className="w-full max-w-6xl px-4 md:px-8">
-          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">Галерея</h2>
+          <h2
+            className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] tracking-wide text-center mb-8`}
+          >
+            Галерея
+          </h2>
           <p className="mt-2 opacity-70">Загрузка альбомов…</p>
         </div>
       </section>
@@ -95,7 +106,11 @@ export default function Gallery() {
     return (
       <section className="w-full py-10 md:py-14 flex justify-center">
         <div className="w-full max-w-6xl px-4 md:px-8">
-          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">Галерея</h2>
+          <h2
+            className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] tracking-wide text-center mb-8`}
+          >
+            Галерея
+          </h2>
           <p className="mt-2 text-red-300">Ошибка: {error}</p>
         </div>
       </section>
@@ -105,9 +120,12 @@ export default function Gallery() {
   return (
     <section className="w-full py-10 md:py-14 flex justify-center">
       <div className="w-full max-w-6xl px-4 md:px-8">
-        <div className="mb-6">
-          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">Галерея</h2>
-          <p className="mt-2 text-[#E7E8E0]/70">Живые моменты с мастер-классов и событий Dandelion.</p>
+        <div className="mb-8">
+          <h2
+            className={`${caveat.className} text-[#ECEDE8] text-[32px] md:text-[36px] tracking-wide text-center`}
+          >
+            Галерея
+          </h2>
         </div>
         <div className="space-y-8">
           {albums.map((a, ai) => (
@@ -236,14 +254,9 @@ function AlbumStrip({ album, albumIndex, onPhotosLoaded, onOpen }) {
     onScroll(); // рассчитать изначально
   }, [photos.length]); // eslint-disable-line
 
-  const onWheel = useCallback((event) => {
-    const el = stripRef.current;
-    if (!el) return;
-    const { deltaX, deltaY } = event;
-    if (Math.abs(deltaY) <= Math.abs(deltaX)) return;
-
-    event.preventDefault();
-    el.scrollBy({ left: deltaY, behavior: 'auto' });
+    if (Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.shiftKey) {
+      event.preventDefault();
+    }
   }, []);
 
   const slice = useMemo(() => photos.slice(range.start, range.end), [photos, range]);
