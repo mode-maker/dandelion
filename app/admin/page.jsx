@@ -33,6 +33,30 @@ async function jsonFetch(url, opts = {}) {
   return res.json();
 }
 
+function BackgroundFX() {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+      <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_50%_-20%,#163223_50%,#0b1310_100%)]" />
+      <div className="absolute inset-0 mix-blend-screen opacity-30">
+        {/* «пыльца» */}
+        {[...Array(24)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full blur-[2px]"
+            style={{
+              left: `${(i * 137) % 100}%`,
+              top: `${(i * 73) % 100}%`,
+              width: 6,
+              height: 6,
+              background: 'rgba(140, 206, 150, 0.45)',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminAlbumsPage() {
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(false);
