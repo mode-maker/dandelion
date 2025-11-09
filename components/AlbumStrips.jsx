@@ -86,7 +86,14 @@ export default function AlbumStrips(){
               </div>
 
               <div className="px-4 pb-4">
-                <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-thin">
+                <div
+                  className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-thin"
+                  onWheel={(event) => {
+                    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+                    event.preventDefault();
+                    event.currentTarget.scrollBy({ left: event.deltaY, behavior: 'auto' });
+                  }}
+                >
                   {a.photos.map((p, pi) => (
                     <figure
                       key={p.id}
