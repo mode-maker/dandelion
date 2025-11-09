@@ -45,8 +45,8 @@ export default function Footer() {
 
   return (
     <footer className="mt-16">
-      <div className="h-1 bg-[#6F8076]/70" />
-      <div className="bg-[#3F3F3F] text-[#ECEDE8]">
+      {/* Удалена верхняя цветная полоса и заливка фона футера */}
+      <div className="text-[#ECEDE8]">
         <div className="max-w-[1200px] mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-10 items-center">
           <div className={`${manrope.className} text-[15px] leading-7`}>
             <div className="flex items-start gap-3.5">
@@ -82,7 +82,7 @@ export default function Footer() {
           </div>
 
           <div className={`${manrope.className} text-[14px] leading-6 justify-self-end`}>
-            <div className="max-w-[380px] text-right">
+            <div className="max-w-[380px] text-right opacity-90">
               <p>
                 Все права защищены. Все товарные знаки и другие средства
                 индивидуализации, представленные на данном сайте, принадлежат
