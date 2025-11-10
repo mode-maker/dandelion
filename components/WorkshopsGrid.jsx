@@ -141,7 +141,7 @@ function Card({ item, onMore }) {
       "
     >
       {/* Заголовок */}
-      <div className="text-[#ECEDE8] text-[20px] font-semibold">
+      <div className="text-[#ECEDE8] text-[20px] font-semibold text-center">
         {item.title}
       </div>
 
