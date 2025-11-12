@@ -107,12 +107,12 @@ export default function Reviews() {
               className="rounded-2xl bg-[#E7E8E0] shadow-sm overflow-hidden flex flex-col"
             >
               <Image
-                src={photo.photo}
-                alt={photo.alt}
-                width={photo.width}
-                height={photo.height}
+                src={r.photo}
+                alt={`${r.name} — ${r.role}`}
+                width={640}
+                height={640}
                 sizes="(max-width: 768px) 100vw, 33vw"
-                className="h-auto w-full"
+                className="h-auto w-full object-cover"
                 priority
               />
               <div className="p-5 flex flex-col gap-3">
