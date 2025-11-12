@@ -50,22 +50,16 @@ const PHOTO_REVIEWS = [
     id: "gallery-1",
     photo: "/reviews/gallery-1.jpg",
     alt: "Флорариум с сочными оттенками зелени и камнями в стеклянной вазе",
-    width: 1001,
-    height: 1280,
   },
   {
     id: "gallery-2",
     photo: "/reviews/gallery-2.jpg",
     alt: "Круглый флорариум с разноуровневой композицией суккулентов",
-    width: 977,
-    height: 1280,
   },
   {
     id: "gallery-3",
     photo: "/reviews/gallery-3.jpg",
     alt: "Мини-сад с цветущим растением и декоративными элементами",
-    width: 720,
-    height: 1280,
   },
 ];
 
@@ -106,15 +100,16 @@ export default function Reviews() {
               key={r.id}
               className="rounded-2xl bg-[#E7E8E0] shadow-sm overflow-hidden flex flex-col"
             >
-              <Image
-                src={r.photo}
-                alt={`${r.name} — ${r.role}`}
-                width={640}
-                height={640}
-                sizes="(max-width: 768px) 100vw, 33vw"
-                className="h-auto w-full object-cover"
-                priority
-              />
+              <div className="relative h-56 w-full">
+                <Image
+                  src={r.photo}
+                  alt={r.name}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
+                  priority
+                />
+              </div>
               <div className="p-5 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -145,6 +140,7 @@ export default function Reviews() {
               key={photo.id}
               className="rounded-2xl overflow-hidden"
             >
+              <div className="relative h-56 w-full">
                 <Image
                   src={photo.photo}
                   alt={photo.alt}
@@ -153,7 +149,7 @@ export default function Reviews() {
                   className="object-cover"
                   priority
                 />
-
+              </div>
             </article>
           ))}
         </div>
