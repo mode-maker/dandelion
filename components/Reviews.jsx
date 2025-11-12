@@ -45,6 +45,24 @@ const REVIEWS = [
   },
 ];
 
+const PHOTO_REVIEWS = [
+  {
+    id: "gallery-1",
+    photo: "/reviews/gallery-1.jpg",
+    alt: "Флорариум с сочными оттенками зелени и камнями в стеклянной вазе",
+  },
+  {
+    id: "gallery-2",
+    photo: "/reviews/gallery-2.jpg",
+    alt: "Круглый флорариум с разноуровневой композицией суккулентов",
+  },
+  {
+    id: "gallery-3",
+    photo: "/reviews/gallery-3.jpg",
+    alt: "Мини-сад с цветущим растением и декоративными элементами",
+  },
+];
+
 function Stars({ count }) {
   return (
     <div className="flex gap-1" aria-label={`Оценка: ${count} из 5`}>
@@ -114,6 +132,23 @@ export default function Reviews() {
                     Читать полностью
                   </button>
                 </div>
+              </div>
+            </article>
+          ))}
+          {PHOTO_REVIEWS.map((photo) => (
+            <article
+              key={photo.id}
+              className="rounded-2xl overflow-hidden"
+            >
+              <div className="relative h-56 w-full">
+                <Image
+                  src={photo.photo}
+                  alt={photo.alt}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  className="object-cover"
+                  priority
+                />
               </div>
             </article>
           ))}
