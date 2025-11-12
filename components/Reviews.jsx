@@ -57,14 +57,14 @@ const PHOTO_REVIEWS = [
     id: "gallery-2",
     photo: "/reviews/gallery-2.jpg",
     alt: "Круглый флорариум с разноуровневой композицией суккулентов",
-    width: 1001,
+    width: 977,
     height: 1280,
   },
   {
     id: "gallery-3",
     photo: "/reviews/gallery-3.jpg",
     alt: "Мини-сад с цветущим растением и декоративными элементами",
-    width: 1001,
+    width: 720,
     height: 1280,
   },
 ];
