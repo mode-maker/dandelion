@@ -145,7 +145,6 @@ export default function Reviews() {
               key={photo.id}
               className="rounded-2xl overflow-hidden"
             >
-              <div className="relative h-56 w-full">
                 <Image
                   src={photo.photo}
                   alt={photo.alt}
