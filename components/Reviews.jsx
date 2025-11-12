@@ -154,7 +154,7 @@ export default function Reviews() {
                   className="object-cover"
                   priority
                 />
-              </div>
+
             </article>
           ))}
         </div>
